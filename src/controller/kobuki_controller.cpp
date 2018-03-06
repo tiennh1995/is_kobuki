@@ -224,8 +224,6 @@ void KobukiController::moveToMegaCell(MegaCell megaCell) {
   stcNavigation.passedMegaCell.push_back(stcNavigation.currentMegaCell);
   stcNavigation.parentMegaCell = stcNavigation.currentMegaCell;
   stcNavigation.currentMegaCell = megaCell;
-  stcNavigation.currentDirection = stcNavigation.passedCellDirection.front();
-  stcNavigation.passedCellDirection.pop();
 }
 
 // bool KobukiController::initMoveBase() {
@@ -306,6 +304,7 @@ bool KobukiController::moveToCell(Cell cell, int direction) {
     goForward(distance);
     break;
   }
+  return true;
 }
 
 void KobukiController::turn(int degree) {
