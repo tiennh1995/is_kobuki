@@ -1,16 +1,15 @@
 #include "../include/controller/kobuki_controller.hpp"
 
 int main(int argc, char **argv) {
-  ros::init(argc, argv, "is_kobuki_node");
-  std::string movebase_ns = std::string("move_base");
+  std::string nodeName = "is_kobuki_node";
+  if (argc > 1)
+    nodeName += argv[1];
+
+  ros::init(argc, argv, nodeName);
   ros::NodeHandle nh;
-  KobukiController kobukiController(nh, movebase_ns);
+  KobukiController kobukiController(nh);
+  if (argc > 1)
+    kobukiController.setRobotId(atoi(argv[1]));
   kobukiController.init();
-
-  // ros::Rate loop_rate(10);
-  // while (ros::ok()) {
-  //   loop_rate.sleep();
-  // }
-
   return 0;
 }

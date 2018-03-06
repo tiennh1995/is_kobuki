@@ -1,0 +1,12 @@
+<launch>
+  <!-- Auto Docking Multiple -->
+  <arg name="robot_id" default="1" />
+
+  <include file="$(find kobuki_auto_docking)/launch/minimal_multiplerobot.launch">
+    <arg name="robot_id" value="$(arg robot_id)"/>
+  </include>
+
+  <include file="$(find kobuki_auto_docking)/launch/activate_multiplerobot.launch">
+    <arg name="robot_id" value="$(arg robot_id)"/>
+  </include>
+</launch>

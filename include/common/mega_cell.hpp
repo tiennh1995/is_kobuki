@@ -12,6 +12,7 @@ private:
   int x, y;
   int cellSize;
   bool obstacle;
+  int status;
 
 public:
   MegaCell() {
@@ -19,6 +20,7 @@ public:
     y = 0;
     cellSize = 0;
     obstacle = true;
+    status = WAITING;
   }
 
   MegaCell(Cell cell, int position, bool obstacle) {
@@ -45,17 +47,20 @@ public:
     }
 
     this->obstacle = obstacle;
+    status = WAITING;
   }
 
   int getX();
   int getY();
   int getCellSize();
   bool hasObstacle();
+  int getStatus();
 
   void setX(int x);
   void setY(int y);
   void setCellSize(int cellSize);
   void setObstacle(bool obstacle);
+  void setStatus(int status);
 
   // Tra ve cell trong megaCell theo position
   Cell getCell(int position);
@@ -65,6 +70,12 @@ public:
 
   // Tra ve vi tri tuong doi cua megaCell so voi this
   int getMegaCellPosition(MegaCell megaCell);
+
+  // Tra ve danh sach cell trong megaCell this
+  Cell* getCells();
+
+  // Kiem tra megaCell da quet het chua
+  bool isScaned();
 
   // Lay megaCell xung quanh, theo chieu nguoc chieu kim dong ho.
   MegaCell getNeighbor(int position);
