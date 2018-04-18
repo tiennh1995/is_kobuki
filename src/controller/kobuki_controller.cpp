@@ -1,31 +1,63 @@
 #include "../../include/controller/kobuki_controller.hpp"
 
+int KobukiController::getRobotId() {
+  return robotId;
+}
+
+void KobukiController::setRobotId(int robotId) {
+  this->robotId = robotId;
+}
+
+bool KobukiController::getIsDirectionX() {
+  return isDirectionX;
+}
+
+void KobukiController::setIsDirectionX(bool isDirectionX) {
+  this->isDirectionX = isDirectionX;
+}
+
 bool KobukiController::init() {
+  ROS_INFO("Init Controller");
+
   // Subscriber
   // Init map
   map_metadata_sub = nh.subscribe("/map_metadata", 10,
                                   &KobukiController::initializeMap, this);
-  // bumper_event_sub = nh.subscribe("/mobile_base/events/bumper",
-  //                                  1, &KobukiController::bumperEventHandle, this);
-  // cliff_event_sub = nh.subscribe("/mobile_base/events/cliff", 1,
-  //                                &KobukiController::bumperEventHandle, this);
-  // odometry_sub = nh.subscribe("/odom", 1,
-  //                             &KobukiController::odometryHandle, this);
-  // laser_sub = nh.subscribe("/scan", 1,
-  //                          &KobukiController::laserHandle, this);
-  amcl_sub = nh.subscribe("/amcl_pose", 1,
+  bumper_event_sub = nh.subscribe(initTopic("/mobile_base/events/bumper"), 1,
+                                  &KobukiController::bumperEventHandle, this);
+  cliff_event_sub = nh.subscribe(initTopic("/mobile_base/events/cliff"), 1,
+                                 &KobukiController::bumperEventHandle, this);
+  odometry_sub = nh.subscribe(initTopic("/odom"), 1,
+                              &KobukiController::odometryHandle, this);
+  laser_sub = nh.subscribe(initTopic("/scan"), 1, &KobukiController::laserHandle, this);
+  amcl_sub = nh.subscribe(initTopic("/amcl_pose"), 1,
                           &KobukiController::amclHandle, this);
 
+  // Services
+  updateRobotClient = nh.serviceClient<is_kobuki::UpdateRobot>("/update_robot");
+  updateMapClient = nh.serviceClient<is_kobuki::UpdateMap>("/update_map");
+  validMegaCellsClient = nh.serviceClient<is_kobuki::ValidMegaCells>("/valid_mega_cells");
+
   // Publisher
-  cmd_vel_pub = nh.advertise<geometry_msgs::Twist>("/mobile_base/commands/velocity", 1);
-  power_pub = nh.advertise<kobuki_msgs::MotorPower>("/mobile_base/commands/motor_power", 1);
-  amcl_pub = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("/initialpose", 1);
+  cmd_vel_pub = nh.advertise<geometry_msgs::Twist>(initTopic("/mobile_base/commands/velocity"), 1);
+  power_pub = nh.advertise<kobuki_msgs::MotorPower>(initTopic("/mobile_base/commands/motor_power"), 1);
 
   thread.start(&KobukiController::moveWithSTC, *this);
 
+  ROS_INFO("Init Controller Success!");
   ros::spin();
 
   return true;
+}
+
+std::string KobukiController::initTopic(std::string topic) {
+  std::stringstream stream;
+  if (robotId != 0)
+    stream << "/mobile_base" << robotId << topic;
+  else
+    stream << topic;
+
+  return stream.str();
 }
 
 // Init map
@@ -37,8 +69,7 @@ void KobukiController::initializeMap(const nav_msgs::MapMetaDataConstPtr msg) {
     map.setOriginX(msg->origin.position.x);
     map.setOriginY(msg->origin.position.y);
 
-    map_sub = nh.subscribe("/map", 10,
-                           &KobukiController::setMapData, this);
+    map_sub = nh.subscribe("/map", 10, &KobukiController::setMapData, this);
     initMap = false;
   }
 }
@@ -51,7 +82,10 @@ void KobukiController::setMapData(const nav_msgs::OccupancyGridConstPtr msg) {
   }
 
   map.setMapData(map.oneArrToTwoArr(mapData));
-  initCell();
+  // initCell();
+  initCellFixCung();
+
+  // updateRobot(true, true);
 }
 
 // Khoi tao cell, megaCell
@@ -61,18 +95,17 @@ void KobukiController::initCell() {
   down = map.findLineDown();
   right = map.findLineRight();
 
-  // Fix cung
-  cellSize = 6;
-
-  // khoi tao mang cells
+  // Khoi tao mang cells
 
   // Tinh so dong sau khi thu nho
   int numberRow = ((up - down + 1) / cellSize);
+  // Lam tron sao cho so dong chia het cho 2, de thuan tien cho viec chia megaCell
   if (numberRow % 2 != 0)
     numberRow--;
 
   // Tinh so cot sau khi thu nho
   int numberCol = (right - left + 1) / cellSize;
+  // Lam tron sao cho so cot chia het cho 2, de thuan tien cho viec chia megaCell
   if (numberCol % 2 != 0)
     numberCol--;
 
@@ -132,8 +165,100 @@ void KobukiController::initCell() {
   }
 }
 
+void KobukiController::initCellFixCung() {
+
+  int numberCol = 6;
+  int numberRow = 8;
+
+  int left = 100;
+  int down = 100;
+
+  int col = left, row = down;
+
+  Common::cells = new Cell*[numberRow];
+  for (int i = 0; i < numberRow; i++)
+    Common::cells[i] = new Cell[numberCol];
+
+  for (int rowC = 0; rowC < numberRow; rowC++) {
+    for (int colC = 0; colC < numberCol; colC++) {
+      Common::cells[rowC][colC].setX(col);
+      Common::cells[rowC][colC].setY(row + cellSize - 1);
+      Common::cells[rowC][colC].setCentreX(col + cellSize / 2);
+      Common::cells[rowC][colC].setCentreY(row + cellSize - 1 - cellSize / 2);
+      Common::cells[rowC][colC].setCellSize(cellSize);
+      Common::cells[rowC][colC].setObstacle(false);
+      col = col + cellSize;
+    }
+    col = left;
+    row = row + cellSize;
+  }
+
+  Common::cells[1][2].setObstacle(true);
+  Common::cells[1][3].setObstacle(true);
+  Common::cells[2][3].setObstacle(true);
+  Common::cells[3][3].setObstacle(true);
+  Common::cells[4][2].setObstacle(true);
+  Common::cells[4][3].setObstacle(true);
+
+  Common::rowCells = numberRow;
+  Common::colCells = numberCol;
+
+  // Cap phat dong cho mang megaCells
+  Common::megaCells = new MegaCell*[numberRow / 2];
+  for (int i = 0; i < numberRow / 2; i++)
+    Common::megaCells[i] = new MegaCell[numberCol / 2];
+
+  // tao mang megaCells
+  int rowM = 0;
+  int colM = 0;
+  bool obstacle = false;
+
+  for (int rowC = 0; rowC < numberRow; rowC = rowC + 2) {
+    for (int colC = 0; colC < numberCol; colC = colC + 2) {
+      if (Common::cells[rowC][colC].hasObstacle()) obstacle = true;
+      else if (Common::cells[rowC + 1][colC].hasObstacle()) obstacle = true;
+      else if (Common::cells[rowC][colC + 1].hasObstacle()) obstacle = true;
+      else if (Common::cells[rowC + 1][colC + 1].hasObstacle()) obstacle = true;
+      else obstacle = false;
+
+      Common::megaCells[rowM][colM].setX(Common::cells[rowC + 1][colC].getX());
+      Common::megaCells[rowM][colM].setY(Common::cells[rowC + 1][colC].getY());
+      Common::megaCells[rowM][colM].setCellSize(Common::cells[rowC + 1][colC].getCellSize());
+      Common::megaCells[rowM][colM].setObstacle(obstacle);
+      colM++;
+    }
+    rowM++;
+    colM = 0;
+  }
+
+  for(int i = Common::rowCells - 1; i >= 0; i--) {
+    for(int j = 0; j < Common::colCells; j++) {
+      if(Common::cells[i][j].hasObstacle())
+        printf("x");
+      else
+        printf("-");
+
+      if(j == (Common::colCells - 1))
+        printf("\n");
+    }
+  }
+
+  for(int i = Common::rowCells/2 - 1; i >= 0; i--) {
+    for(int j = 0; j < Common::colCells/2; j++) {
+      if(Common::megaCells[i][j].hasObstacle())
+        printf("x");
+      else
+        printf("-");
+
+      if(j == (Common::colCells/2 - 1))
+        printf("\n");
+    }
+  }
+}
+
 // Move robot with STC algorithm
 void KobukiController::moveWithSTC() {
+  ROS_INFO("START MOVE STC");
   // 500ms
   ros::Rate loop_rate(2);
   loop_rate.sleep();
@@ -151,25 +276,14 @@ void KobukiController::moveWithSTC() {
   else
     row = distanceY / cellSize;
 
+  row = 10;
+  col = 2;
+
   stcNavigation.startCell = Common::cells[row][col];
   stcNavigation.startMegaCell = Common::findMegaCellByCell(stcNavigation.startCell);
 
   stcNavigation.currentCell = stcNavigation.startCell;
   stcNavigation.currentMegaCell = stcNavigation.startMegaCell;
-
-  for(int i = Common::rowCells - 1; i >= 0; i--) {
-    for(int j = 0; j < Common::colCells; j++) {
-      if(i == row && j == col)
-        printf("o");
-      else if(Common::cells[i][j].hasObstacle())
-        printf("x");
-      else
-        printf("-");
-
-      if(j == (Common::colCells - 1))
-        printf("\n");
-    }
-  }
 
   // Quet hang xom xung quanh megaCell hien tai
   MegaCell megaCell = stcNavigation.scanNeighbor(1);
@@ -177,17 +291,15 @@ void KobukiController::moveWithSTC() {
   // Di chuyen lan dau tien
   if (stcNavigation.passedMegaCellPath.empty() && (megaCell == stcNavigation.currentMegaCell)) {
     // Ket thuc vi khong co duong di
-    ROS_INFO("KHONG CO DUONG DI!");
+    ROS_INFO("NO VALID PATH!");
     return;
   } else {
-    ROS_INFO("DI CHUYEN LAN DAU");
     moveToMegaCell(megaCell);
   }
 
   // Di chuyen cho nhung lan tiep theo.
   // Dieu kien dung la Danh sach megaCellPath rong VA khong tim thay hang xom.
   megaCell = stcNavigation.scanNeighbor(0);
-  int index = 0;
   while (!(stcNavigation.passedMegaCellPath.empty() && (megaCell == stcNavigation.currentMegaCell))) {
     moveToMegaCell(megaCell);
     megaCell = stcNavigation.scanNeighbor(0);
@@ -226,66 +338,9 @@ void KobukiController::moveToMegaCell(MegaCell megaCell) {
   stcNavigation.currentMegaCell = megaCell;
 }
 
-// bool KobukiController::initMoveBase() {
-//   int i = 0;
-
-//   //retry 2 mins
-//   while ((!action_movebase_client.waitForServer(ros::Duration(5.0))) && (i < 24)) {
-//     ROS_INFO("Waiting for the move_base action server to come up");
-//     i++;
-//   }
-
-//   if (i < 24) {
-//     ROS_INFO("move_base action server activated");
-//     return true;
-//   } else
-//     return false;
-// }
 
 // Use movebase to move from currentCell to cell
 bool KobukiController::moveToCell(Cell cell, int direction) {
-  // if (!initMoveBase()) {
-  //   return false;
-  // }
-
-// move_to:
-//   //set up the frame parameters
-//   move_base_goal.target_pose.header.frame_id = "map";
-//   move_base_goal.target_pose.header.stamp = ros::Time::now();
-
-//   move_base_goal.target_pose.pose.position.x = cell.getCentreX() * map.getResolution() +
-//       map.getOriginX();
-//   move_base_goal.target_pose.pose.position.y =  cell.getCentreY() * map.getResolution() +
-//       map.getOriginY();
-
-//   move_base_goal.target_pose.pose.position.z =  0.0;
-//   move_base_goal.target_pose.pose.orientation.x = 0.0;
-//   move_base_goal.target_pose.pose.orientation.y = 0.0;
-//   move_base_goal.target_pose.pose.orientation.z = 0.0;
-//   move_base_goal.target_pose.pose.orientation.w = 1.0;
-
-
-//   action_movebase_client.sendGoal(move_base_goal);
-//   action_movebase_client.waitForResult();
-
-//   if (action_movebase_client.getState() == actionlib::SimpleClientGoalState::SUCCEEDED) {
-//     return true;
-//   } else {
-//     retry++;
-//     if (retry <= maxRetry) {
-
-//       // 100ms
-//       ros::Rate retry_rate(10);
-//       for (int i = 0; i < 10; i++) {
-//         // Quay trai o day
-//         retry_rate.sleep();
-//       }
-//       goto move_to;
-//     } else {
-//       return false;
-//     }
-//   }
-
   float distance = cell.getCellSize() * 0.05;
 
   switch (direction) {
@@ -304,69 +359,80 @@ bool KobukiController::moveToCell(Cell cell, int direction) {
     goForward(distance);
     break;
   }
+
+  reMove();
+  cell.setStatus(SCANED);
+  // updateMap(cell);
   return true;
 }
 
-void KobukiController::turn(int degree) {
-  twist.linear.x = 0;
-  twist.linear.y = 0;
-  twist.linear.z = 0;
-  twist.angular.x = 0;
-  twist.angular.y = 0;
-  twist.angular.z = angularSpeed;
-  if (degree < 0)
-    twist.angular.z = -angularSpeed;
+void KobukiController::turn(float degree) {
+  ros::Rate rate(10);
+  float theta = current_pose.theta;
+  float x = current_pose.x;
+  float y = current_pose.y;
+  geometry_msgs::Twist move;
+  if (degree > 0)
+    move.angular.z = angularSpeed;
+  else
+    move.angular.z = -angularSpeed;
 
-  float relativeAngle = degree * PI / 180;
+  while (ros::ok() && (std::abs(current_pose.theta - theta) < std::abs(degree))) {
+    cmd_vel_pub.publish(move);
 
-  clock_t start, end;
-  start = clock();
-  float currentAngle = 0;
-
-  // Start rotate
-  while (currentAngle < abs(relativeAngle)) {
-    cmd_vel_pub.publish(twist);
-    end = clock();
-    currentAngle = angularSpeed * (double) ((end - start) / CLOCKS_PER_SEC);
+    ros::spinOnce();
+    rate.sleep();
   }
 
-  // Stop
-  twist.angular.z = 0;
-  cmd_vel_pub.publish(twist);
+  setIsDirectionX(!isDirectionX);
+  deltaTheta += current_pose.theta - theta - degree;
+  deltaX += current_pose.x - x;
+  deltaY += current_pose.y - y;
+  usleep(1000000);
   ROS_INFO("TURN SUCCEEDED");
 }
 
 void KobukiController::turnLeft() {
   ROS_INFO("TURN LEFT");
-  turn(90);
+  turn(PI_MOVE / 2);
 }
 
 void KobukiController::turnRight() {
   ROS_INFO("TURN RIGHT");
-  turn(-90);
+  turn(-PI_MOVE / 2);
 }
 
 void KobukiController::go(float distance) {
-  twist.linear.x = linearSpeed;
-  twist.linear.y = 0;
-  twist.linear.z = 0;
-  twist.angular.x = 0;
-  twist.angular.y = 0;
-  twist.angular.z = 0;
+  ros::Rate rate(10);
+  float theta = current_pose.theta;
+  float x = current_pose.x;
+  float y = current_pose.y;
+  if (getIsDirectionX()) {
+    geometry_msgs::Twist move;
+    move.linear.x = linearSpeed;
+    while (ros::ok() && (std::abs(current_pose.x - x) < distance)) {
+      cmd_vel_pub.publish(move);
+      ros::spinOnce();
+      rate.sleep();
+    }
 
-  time_t start = time(0);
-  float currentDistance = 0;
+    deltaX += current_pose.x - x - distance;
+    deltaY += current_pose.y - y;
+  } else {
+    geometry_msgs::Twist move;
+    move.linear.x = linearSpeed;
+    while (ros::ok() && (std::abs(current_pose.y - y) < distance)) {
+      cmd_vel_pub.publish(move);
+      ros::spinOnce();
+      rate.sleep();
+    }
 
-  // Start go
-  while (currentDistance < distance) {
-    cmd_vel_pub.publish(twist);
-    time_t end = time(0);
-    currentDistance = linearSpeed * (end - start);
+    deltaX += current_pose.x - x;
+    deltaY += current_pose.y - y - distance;
   }
 
-  // Stop
-  twist.linear.x = 0;
-  cmd_vel_pub.publish(twist);
+  deltaTheta += current_pose.theta - theta;
+  usleep(1000000);
   ROS_INFO("GO SUCCEEDED");
 }
 
@@ -377,19 +443,102 @@ void KobukiController::goStraight(float distance) {
 
 void KobukiController::goForward(float distance) {
   ROS_INFO("GO FORWARD");
-  turn(180);
+  turn(PI_MOVE / 2);
+  turn(PI_MOVE / 2);
   go(distance);
 }
+
+void KobukiController::reMove() {
+  ROS_INFO("REMOVE");
+  if (std::abs(deltaTheta) >= epsilonTheta) {
+    if (deltaTheta > 0) {
+      turn(-(PI / 2 + deltaTheta));
+      getIsDirectionX() ? go(std::abs(deltaX)) : go(std::abs(deltaY));
+      turn(PI / 2);
+    } else {
+      turn(PI / 2 - deltaTheta);
+      getIsDirectionX() ? go(std::abs(deltaX)) : go(std::abs(deltaY));
+      turn(-PI / 2);
+    }
+  }
+
+  if (std::abs(deltaX) >= epsilonX)
+    go(deltaX);
+
+  if (std::abs(deltaY) >= epsilonY)
+    go(deltaY);
+
+  ROS_INFO("REMOVE SUCCESSED");
+}
+
+int KobukiController::updateMap(Cell cell) {
+  is_kobuki::UpdateMap msg;
+  int* index = Common::findIndexCell(cell);
+  msg.request.col = index[0];
+  msg.request.row = index[1];
+  msg.request.status = cell.getStatus();
+  updateMapClient.call(msg);
+  return 0;
+}
+
+void KobukiController::validMegaCells(int robotId) {
+  is_kobuki::ValidMegaCells msg;
+  msg.request.robotId = robotId;
+  validMegaCellsClient.call(msg);
+  std::vector<int> rows = (std::vector<int>) msg.response.rows;
+  std::vector<int> cols = (std::vector<int>) msg.response.cols;
+
+  for (int i = 0; i < rows.size(); i++)
+    Common::megaCells[rows.at(i)][cols.at(i)].setObstacle(false);
+}
+
+int KobukiController::updateRobot(bool init, bool status) {
+  ROS_INFO("Update robot");
+  is_kobuki::UpdateRobot msg;
+  msg.request.robotId = robotId;
+  msg.request.init = init;
+  msg.request.status = status;
+  updateRobotClient.call(msg);
+
+  if (init) {
+    int minRow = (int) msg.response.minRow;
+    int maxRow = (int) msg.response.maxRow;
+    int minCol = (int) msg.response.minCol;
+    int maxCol = (int) msg.response.maxCol;
+    for (int row = minRow; row < maxRow; row++)
+      for (int col = minCol; col < maxCol; col++)
+        Common::megaCells[row][col].setObstacle(true);
+  }
+
+  ROS_INFO("Update robot SUCCEEDED");
+  return 0;
+}
+
+void KobukiController::odometryHandle(const nav_msgs::OdometryConstPtr& odometry) {
+  // linear position
+  current_pose.x = odometry->pose.pose.position.x;
+  current_pose.y = odometry->pose.pose.position.y;
+
+  // quaternion to RPY conversion
+  tf::Quaternion q(
+    odometry->pose.pose.orientation.x,
+    odometry->pose.pose.orientation.y,
+    odometry->pose.pose.orientation.z,
+    odometry->pose.pose.orientation.w);
+  tf::Matrix3x3 m(q);
+  double roll, pitch, yaw;
+  m.getRPY(roll, pitch, yaw);
+
+  // angular position
+  current_pose.theta = yaw;
+}
+
 
 void KobukiController::bumperEventHandle(const kobuki_msgs::BumperEventConstPtr msg) {
   return;
 }
 
-void KobukiController::bumperEventHandle(const kobuki_msgs::CliffEventConstPtr msg) {
-  return;
-}
-
-void KobukiController::odometryHandle(const nav_msgs::OdometryConstPtr odometry) {
+void KobukiController::cliffEventHandle(const kobuki_msgs::CliffEventConstPtr msg) {
   return;
 }
 
@@ -401,6 +550,7 @@ void KobukiController::laserHandle(const sensor_msgs::LaserScanConstPtr laser) {
 void KobukiController::amclHandle(const geometry_msgs::PoseWithCovarianceStampedConstPtr amclpose) {
   maxAMCL++;
   if (maxAMCL < 100) {
+    ROS_INFO("%f, %f", amclpose->pose.pose.position.x, amclpose->pose.pose.position.y);
     amcl_pub.publish(amclpose);
     currentCellX = (amclpose->pose.pose.position.x - map.getOriginX()) / map.getResolution();
     currentCellY = (amclpose->pose.pose.position.y - map.getOriginY()) / map.getResolution();

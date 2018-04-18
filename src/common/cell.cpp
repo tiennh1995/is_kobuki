@@ -24,6 +24,10 @@ bool Cell::hasObstacle() {
   return obstacle;
 }
 
+int Cell::getStatus() {
+  return status;
+}
+
 void Cell::setX(int x) {
   this->x = x;
 }
@@ -46,6 +50,10 @@ void Cell::setCentreY(int centreY) {
 
 void Cell::setObstacle(bool obstacle) {
   this->obstacle = obstacle;
+}
+
+void Cell::setStatus(int status) {
+  this->status = status;
 }
 
 // Tra ve cell ben canh theo vi tri position

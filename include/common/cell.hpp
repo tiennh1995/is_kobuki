@@ -18,6 +18,9 @@ private:
   // Co vat can hay k?
   bool obstacle;
 
+  // Da quet hay chua
+  int status;
+
 public:
   Cell() {
     x = 0;
@@ -26,6 +29,7 @@ public:
     centreY = 0;
     cellSize = 0;
     obstacle = true;
+    status = WAITING;
   }
 
   Cell(int x, int y, int cellSize, bool obstacle) {
@@ -37,6 +41,8 @@ public:
     // set centreX, centreY
     centreX = x + cellSize / 2;
     centreY = y - cellSize / 2;
+
+    status = WAITING;
   }
 
   int getX();
@@ -45,6 +51,7 @@ public:
   int getCentreY();
   int getCellSize();
   bool hasObstacle();
+  int getStatus();
 
   void setX(int x);
   void setY(int y);
@@ -52,6 +59,7 @@ public:
   void setCentreX(int centreX);
   void setCentreY(int centreY);
   void setObstacle(bool obstacle);
+  void setStatus(int status);
 
   // Tra ve cell ben canh theo vi tri position
   Cell getNeighbor(int position);

@@ -20,8 +20,12 @@
 #include <move_base_msgs/MoveBaseAction.h>
 #include <actionlib/client/simple_action_client.h>
 #include <unistd.h>
+#include <string>
+#include <tf/tf.h>
+#include <geometry_msgs/Pose2D.h>
 
 #include "../stc/stc_navigation.hpp"
+#include "../service/map_service.hpp"
 
 class KobukiController {
 private:
@@ -29,8 +33,6 @@ private:
   ros::NodeHandle nh;
 
   // Subscribers
-  ros::Subscriber enable_controller_sub;
-  ros::Subscriber disable_controller_sub;
   ros::Subscriber bumper_event_sub;
   ros::Subscriber cliff_event_sub;
   ros::Subscriber map_sub;
@@ -44,21 +46,25 @@ private:
   ros::Publisher power_pub;
   ros::Publisher amcl_pub;
 
-  geometry_msgs::Twist twist;
-  move_base_msgs::MoveBaseGoal move_base_goal;
-  actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> action_movebase_client;
+  // Service
+  ros::ServiceClient updateRobotClient;
+  ros::ServiceClient updateMapClient;
+  ros::ServiceClient validMegaCellsClient;
 
   // STC controller
   STCNavigation stcNavigation;
+
+  // Message
+  geometry_msgs::Twist twist;
+  geometry_msgs::Pose2D current_pose;
 
   // Map
   Map map;
 
   // Custom variable
+  int robotId;
 
   // Use when moveTo
-  int maxRetry;
-  int retry;
   bool initMap;
   int up;
   int left;
@@ -70,31 +76,30 @@ private:
   int maxAMCL;
 
   double PI;
+  double PI_MOVE;
   float angularSpeed;
   float linearSpeed;
+  bool isDirectionX;
+  float deltaX, deltaY, deltaTheta;
+  float epsilonX, epsilonY, epsilonTheta;
 
   ecl::Thread thread;
-  ecl::Thread thread2;
 
 public:
-  KobukiController(ros::NodeHandle nodehandle, std::string movebase_ns): action_movebase_client(nodehandle, movebase_ns, true) {
+  KobukiController(ros::NodeHandle nodehandle) {
     nh = nodehandle;
     stcNavigation = STCNavigation();
     map = Map();
-    maxRetry = 10;
-    retry = 0;
     initMap = true;
-    up = 0;
-    left = 0;
-    down = 0;
-    right = 0;
-    cellSize = 0;
-    currentCellX = 0;
-    currentCellY = 0;
-    maxAMCL = 0;
+    cellSize = 6;
     PI = 3.1415926535897;
+    PI_MOVE = 2.8;
     angularSpeed = PI / 8;
     linearSpeed = 0.125;
+    isDirectionX = true;
+    epsilonX = 0.05;
+    epsilonY = 0.05;
+    epsilonTheta = 0.05;
   }
 
   // Destructor
@@ -104,8 +109,16 @@ public:
     }
   }
 
+  int getRobotId();
+  void setRobotId(int robotId);
+
+  bool getIsDirectionX();
+  void setIsDirectionX(bool isDirectionX);
+
   // Declare methods
   bool init();
+
+  std::string initTopic(std::string topic);
 
   // Khoi tao map
   void initializeMap(const nav_msgs::MapMetaDataConstPtr msg);
@@ -113,6 +126,7 @@ public:
 
   // Khoi tao cell, megaCell
   void initCell();
+  void initCellFixCung();
 
   // Chay robot voi thuat toan STC
   void moveWithSTC();
@@ -126,17 +140,23 @@ public:
   // Di chuyen giua cac cell (Tu currentCell toi nextCell)
   bool moveToCell(Cell nextCell, int direction);
 
-  void turn(int degree);
+  void turn(float degree);
   void turnLeft();
   void turnRight();
   void go(float distance);
   void goForward(float distance);
   void goStraight(float distance);
+  void reMove();
+
+  // Mapservice
+  int updateMap(Cell cell);
+  void validMegaCells(int robotId);
+  int updateRobot(bool init, bool status);
 
   // Xu li cac su kien tuong ung
   void bumperEventHandle(const kobuki_msgs::BumperEventConstPtr msg);
-  void bumperEventHandle(const kobuki_msgs::CliffEventConstPtr msg);
-  void odometryHandle(const nav_msgs::OdometryConstPtr odometry);
+  void cliffEventHandle(const kobuki_msgs::CliffEventConstPtr msg);
+  void odometryHandle(const nav_msgs::OdometryConstPtr& odometry);
   void laserHandle(const sensor_msgs::LaserScanConstPtr laser);
   void amclHandle(const geometry_msgs::PoseWithCovarianceStampedConstPtr amclpose);
 };

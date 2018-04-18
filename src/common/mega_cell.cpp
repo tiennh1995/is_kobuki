@@ -16,6 +16,10 @@ bool MegaCell::hasObstacle() {
   return obstacle;
 }
 
+int MegaCell::getStatus() {
+  return status;
+}
+
 void MegaCell::setX(int x) {
   this->x = x;
 }
@@ -30,6 +34,10 @@ void MegaCell::setCellSize(int cellSize) {
 
 void MegaCell::setObstacle(bool obstacle) {
   this->obstacle = obstacle;
+}
+
+void MegaCell::setStatus(int status) {
+  this->status = status;
 }
 
 // Tra ve cell trong megaCell theo position
@@ -90,6 +98,28 @@ int MegaCell::getMegaCellPosition(MegaCell megaCell) {
     return RIGHT;
 
   return -1;
+}
+
+// Tra ve cac cell cua megaCell
+Cell* MegaCell::getCells() {
+  Cell* cells = (Cell*) malloc(4 * sizeof(Cell));
+  cells[0] = getCell(TOP_LEFT);
+  cells[1] = getCell(BOTTOM_LEFT);
+  cells[2] = getCell(TOP_RIGHT);
+  cells[3] = getCell(BOTTOM_RIGHT);
+  return cells;
+}
+
+bool MegaCell::isScaned() {
+  Cell* cells = getCells();
+  bool scaned = true;
+  for (int i = 0; i < 4; i++)
+    if (cells[i].getStatus() == WAITING) {
+      scaned = false;
+      break;
+    }
+
+  return scaned;
 }
 
 // Lay megaCell xung quanh, theo chieu nguoc chieu kim dong ho.
