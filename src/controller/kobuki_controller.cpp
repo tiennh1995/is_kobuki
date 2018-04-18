@@ -23,26 +23,24 @@ bool KobukiController::init() {
   // Init map
   map_metadata_sub = nh.subscribe("/map_metadata", 10,
                                   &KobukiController::initializeMap, this);
-  bumper_event_sub = nh.subscribe(initTopic("/mobile_base/events/bumper"), 1,
-                                  &KobukiController::bumperEventHandle, this);
-  cliff_event_sub = nh.subscribe(initTopic("/mobile_base/events/cliff"), 1,
-                                 &KobukiController::bumperEventHandle, this);
-  odometry_sub = nh.subscribe(initTopic("/odom"), 1,
-                              &KobukiController::odometryHandle, this);
-  laser_sub = nh.subscribe(initTopic("/scan"), 1, &KobukiController::laserHandle, this);
-  amcl_sub = nh.subscribe(initTopic("/amcl_pose"), 1,
-                          &KobukiController::amclHandle, this);
+  // bumper_event_sub = nh.subscribe(initTopic("/mobile_base/events/bumper"), 1,
+  //                                 &KobukiController::bumperEventHandle, this);
+  // cliff_event_sub = nh.subscribe(initTopic("/mobile_base/events/cliff"), 1,
+  //                                &KobukiController::bumperEventHandle, this);
+  // odometry_sub = nh.subscribe(initTopic("/odom"), 1,
+  //                             &KobukiController::odometryHandle, this);
+  // laser_sub = nh.subscribe(initTopic("/scan"), 1, &KobukiController::laserHandle, this);
+  // amcl_sub = nh.subscribe(initTopic("/amcl_pose"), 1,
+  //                         &KobukiController::amclHandle, this);
 
   // Services
-  updateRobotClient = nh.serviceClient<is_kobuki::UpdateRobot>("/update_robot");
-  updateMapClient = nh.serviceClient<is_kobuki::UpdateMap>("/update_map");
-  validMegaCellsClient = nh.serviceClient<is_kobuki::ValidMegaCells>("/valid_mega_cells");
+  // updateRobotClient = nh.serviceClient<is_kobuki::UpdateRobot>("/update_robot");
+  // updateMapClient = nh.serviceClient<is_kobuki::UpdateMap>("/update_map");
+  // validMegaCellsClient = nh.serviceClient<is_kobuki::ValidMegaCells>("/valid_mega_cells");
 
   // Publisher
-  cmd_vel_pub = nh.advertise<geometry_msgs::Twist>(initTopic("/mobile_base/commands/velocity"), 1);
-  power_pub = nh.advertise<kobuki_msgs::MotorPower>(initTopic("/mobile_base/commands/motor_power"), 1);
-
-  // thread.start(&KobukiController::moveWithSTC, *this);
+  // cmd_vel_pub = nh.advertise<geometry_msgs::Twist>(initTopic("/mobile_base/commands/velocity"), 1);
+  // power_pub = nh.advertise<kobuki_msgs::MotorPower>(initTopic("/mobile_base/commands/motor_power"), 1);
 
   ROS_INFO("Init Controller Success!");
   ros::spin();
@@ -83,8 +81,9 @@ void KobukiController::setMapData(const nav_msgs::OccupancyGridConstPtr msg) {
 
   map.setMapData(map.oneArrToTwoArr(mapData));
   initCell();
-
-  updateRobot(true, true);
+  // thread.start(&KobukiController::moveWithSTC, *this);
+  thread.start(&KobukiController::moveWithSTCFix, *this);
+  // updateRobot(true, true);
 }
 
 // Khoi tao cell, megaCell
@@ -166,7 +165,7 @@ void KobukiController::initCell() {
 
 // Move robot with STC algorithm
 void KobukiController::moveWithSTC() {
-  ROS_INFO("START MOVE STC");
+  ROS_INFO("START MOVESTC");
   // 500ms
   ros::Rate loop_rate(2);
   loop_rate.sleep();
@@ -385,7 +384,7 @@ void KobukiController::goForward(float distance) {
 }
 
 void KobukiController::reMove() {
-  ROS_INFO("REMOVE");
+  // ROS_INFO("REMOVE");
   if (std::abs(deltaTheta) >= epsilonTheta) {
     if (deltaTheta > 0) {
       turn(-(PI / 2 + deltaTheta));
@@ -404,7 +403,7 @@ void KobukiController::reMove() {
   if (std::abs(deltaY) >= epsilonY)
     go(deltaY);
 
-  ROS_INFO("REMOVE SUCCESSED");
+  // ROS_INFO("REMOVE SUCCESSED");
 }
 
 int KobukiController::updateMap(Cell cell) {
@@ -515,9 +514,283 @@ void KobukiController::laserHandle(const sensor_msgs::LaserScanConstPtr laser) {
 void KobukiController::amclHandle(const geometry_msgs::PoseWithCovarianceStampedConstPtr amclpose) {
   maxAMCL++;
   if (maxAMCL < 100) {
-    ROS_INFO("%f, %f", amclpose->pose.pose.position.x, amclpose->pose.pose.position.y);
     amcl_pub.publish(amclpose);
     currentCellX = (amclpose->pose.pose.position.x - map.getOriginX()) / map.getResolution();
     currentCellY = (amclpose->pose.pose.position.y - map.getOriginY()) / map.getResolution();
   }
+}
+
+void KobukiController::initCellFix() {
+  ROS_INFO("fix cung");
+  int numberRow = 8;
+  int numberCol = 6;
+
+  int left = 100;
+  int down = 100;
+
+  int col = left, row = down;
+
+  Common::cells = new Cell*[numberRow];
+  for (int i = 0; i < numberRow; i++)
+    Common::cells[i] = new Cell[numberCol];
+
+  for (int rowC = 0; rowC < numberRow; rowC++) {
+    for (int colC = 0; colC < numberCol; colC++) {
+      Common::cells[rowC][colC].setX(col);
+      Common::cells[rowC][colC].setY(row + cellSize - 1);
+      Common::cells[rowC][colC].setCentreX(col + cellSize / 2);
+      Common::cells[rowC][colC].setCentreY(row + cellSize - 1 - cellSize / 2);
+      Common::cells[rowC][colC].setCellSize(cellSize);
+      Common::cells[rowC][colC].setObstacle(false);
+      col = col + cellSize;
+    }
+    col = left;
+    row = row + cellSize;
+  }
+
+  Common::cells[1][2].setObstacle(true);
+  Common::cells[1][3].setObstacle(true);
+  Common::cells[2][3].setObstacle(true);
+  Common::cells[3][3].setObstacle(true);
+  Common::cells[4][2].setObstacle(true);
+  Common::cells[4][3].setObstacle(true);
+
+  Common::rowCells = numberRow;
+  Common::colCells = numberCol;
+
+  // Cap phat dong cho mang megaCells
+  Common::megaCells = new MegaCell*[numberRow / 2];
+  for (int i = 0; i < numberRow / 2; i++)
+    Common::megaCells[i] = new MegaCell[numberCol / 2];
+
+  // tao mang megaCells
+  int rowM = 0;
+  int colM = 0;
+  bool obstacle = false;
+
+  for (int rowC = 0; rowC < numberRow; rowC = rowC + 2) {
+    for (int colC = 0; colC < numberCol; colC = colC + 2) {
+      if (Common::cells[rowC][colC].hasObstacle()) obstacle = true;
+      else if (Common::cells[rowC + 1][colC].hasObstacle()) obstacle = true;
+      else if (Common::cells[rowC][colC + 1].hasObstacle()) obstacle = true;
+      else if (Common::cells[rowC + 1][colC + 1].hasObstacle()) obstacle = true;
+      else obstacle = false;
+
+      Common::megaCells[rowM][colM].setX(Common::cells[rowC + 1][colC].getX());
+      Common::megaCells[rowM][colM].setY(Common::cells[rowC + 1][colC].getY());
+      Common::megaCells[rowM][colM].setCellSize(Common::cells[rowC + 1][colC].getCellSize());
+      Common::megaCells[rowM][colM].setObstacle(obstacle);
+      colM++;
+    }
+    rowM++;
+    colM = 0;
+  }
+}
+
+// Move robot with STC algorithm
+void KobukiController::moveWithSTCFix() {
+  ROS_INFO("START MOVESTC FIX");
+  // 500ms
+  ros::Rate loop_rate(2);
+  loop_rate.sleep();
+
+  int row, col;
+  int distanceX = currentCellX - left + 1;
+  int distanceY = currentCellY - down + 1;
+  if (distanceX % cellSize == 0)
+    col = distanceX / cellSize - 1;
+  else
+    col = distanceX / cellSize;
+
+  if (distanceY % cellSize == 0)
+    row = distanceY / cellSize - 1;
+  else
+    row = distanceY / cellSize;
+
+  // Fix cung vi tri xuat phat
+  row = 10;
+  col = 3;
+
+  stcNavigation.startCell = Common::cells[row][col];
+  stcNavigation.startMegaCell = Common::findMegaCellByCell(stcNavigation.startCell);
+
+  stcNavigation.currentCell = stcNavigation.startCell;
+  stcNavigation.currentMegaCell = stcNavigation.startMegaCell;
+
+  // Quet hang xom xung quanh megaCell hien tai
+  MegaCell megaCell = stcNavigation.scanNeighbor(1);
+
+  // Di chuyen lan dau tien
+  if (stcNavigation.passedMegaCellPath.empty() && (megaCell == stcNavigation.currentMegaCell)) {
+    // Ket thuc vi khong co duong di
+    ROS_INFO("NO VALID PATH!");
+    return;
+  } else {
+    moveToMegaCellFix(megaCell);
+  }
+
+  // Di chuyen cho nhung lan tiep theo.
+  // Dieu kien dung la Danh sach megaCellPath rong VA khong tim thay hang xom.
+  megaCell = stcNavigation.scanNeighbor(0);
+  while (!(stcNavigation.passedMegaCellPath.empty() && (megaCell == stcNavigation.currentMegaCell))) {
+    moveToMegaCellFix(megaCell);
+    megaCell = stcNavigation.scanNeighbor(0);
+  }
+
+  ROS_INFO("END MOVESTC FIX");
+}
+
+// Move from currentMegaCell to megaCell
+void KobukiController::moveToMegaCellFix(MegaCell megaCell) {
+  Cell cell;
+  // Kiem tra xem co duong di k?
+  if (megaCell != stcNavigation.currentMegaCell) {
+    stcNavigation.passedMegaCellPath.push(stcNavigation.currentMegaCell);
+    stcNavigation.generatePath(megaCell);
+  } else {
+    megaCell = stcNavigation.passedMegaCellPath.top();
+    stcNavigation.passedMegaCellPath.pop();
+    stcNavigation.generatePath(megaCell);
+  }
+
+  // Bau dau di chuyen tu currentMegaCell sang megaCell
+  while (!stcNavigation.passedCellPath.empty()) {
+    cell = stcNavigation.passedCellPath.front();
+    stcNavigation.passedCellPath.pop();
+    int direction = stcNavigation.passedCellDirection.front();
+    stcNavigation.passedCellDirection.pop();
+    if (moveToCellFix(cell, direction)) {
+      stcNavigation.currentCell = cell;
+    }
+  }
+
+  // Gan currentMegaCell bang megaCell moi. Gan parentMegaCell, cho megaCell vao lich su
+  stcNavigation.passedMegaCell.push_back(stcNavigation.currentMegaCell);
+  stcNavigation.parentMegaCell = stcNavigation.currentMegaCell;
+  stcNavigation.currentMegaCell = megaCell;
+}
+
+// Use movebase to move from currentCell to cell
+bool KobukiController::moveToCellFix(Cell cell, int direction) {
+  float distance = cell.getCellSize() * 0.05;
+
+  switch (direction) {
+  case D_UP:
+    goStraightFix(distance);
+    break;
+  case D_LEFT:
+    turnLeftFix();
+    goStraightFix(distance);
+    break;
+  case D_RIGHT:
+    turnRightFix();
+    goStraightFix(distance);
+    break;
+  case D_DOWN:
+    goForwardFix(distance);
+    break;
+  }
+
+  system("clear");
+  cell.setStatus(SCANED);
+  int *index = Common::findIndexCell(cell);
+  Common::cells[index[0]][index[1]].setStatus(SCANED);
+
+  for (int i = Common::rowCells - 1; i >= 0; i--) {
+    for (int j = 0; j < Common::colCells; j++) {
+      if (Common::cells[i][j].getStatus() == SCANED)
+        printf("o");
+      else if (Common::cells[i][j].hasObstacle())
+        printf("x");
+      else
+        printf("-");
+
+      if (j == (Common::colCells - 1))
+        printf("\n");
+    }
+  }
+  // updateMap(cell);
+  return true;
+}
+
+void KobukiController::turnFix(float degree) {
+  ros::Rate rate(10);
+  float theta = current_pose.theta;
+  float x = current_pose.x;
+  float y = current_pose.y;
+  geometry_msgs::Twist move;
+  if (degree > 0)
+    move.angular.z = angularSpeed;
+  else
+    move.angular.z = -angularSpeed;
+
+  // while (ros::ok() && (std::abs(current_pose.theta - theta) < std::abs(degree))) {
+  //   cmd_vel_pub.publish(move);
+
+  //   ros::spinOnce();
+  //   rate.sleep();
+  // }
+
+  setIsDirectionX(!isDirectionX);
+  deltaTheta += current_pose.theta - theta - degree;
+  deltaX += current_pose.x - x;
+  deltaY += current_pose.y - y;
+  usleep(1000000);
+  // ROS_INFO("TURN SUCCEEDED");
+}
+
+void KobukiController::turnLeftFix() {
+  // ROS_INFO("TURN LEFT");
+  turnFix(PI_MOVE / 2);
+}
+
+void KobukiController::turnRightFix() {
+  // ROS_INFO("TURN RIGHT");
+  turnFix(-PI_MOVE / 2);
+}
+
+void KobukiController::goFix(float distance) {
+  ros::Rate rate(10);
+  float theta = current_pose.theta;
+  float x = current_pose.x;
+  float y = current_pose.y;
+  if (getIsDirectionX()) {
+    geometry_msgs::Twist move;
+    move.linear.x = linearSpeed;
+    // while (ros::ok() && (std::abs(current_pose.x - x) < distance)) {
+    //   cmd_vel_pub.publish(move);
+    //   ros::spinOnce();
+    //   rate.sleep();
+    // }
+
+    deltaX += current_pose.x - x - distance;
+    deltaY += current_pose.y - y;
+  } else {
+    geometry_msgs::Twist move;
+    move.linear.x = linearSpeed;
+    // while (ros::ok() && (std::abs(current_pose.y - y) < distance)) {
+    //   cmd_vel_pub.publish(move);
+    //   ros::spinOnce();
+    //   rate.sleep();
+    // }
+
+    deltaX += current_pose.x - x;
+    deltaY += current_pose.y - y - distance;
+  }
+
+  deltaTheta += current_pose.theta - theta;
+  usleep(1000000);
+  // ROS_INFO("GO SUCCEEDED");
+}
+
+void KobukiController::goStraightFix(float distance) {
+  // ROS_INFO("GO STRAIGHT");
+  goFix(distance);
+}
+
+void KobukiController::goForwardFix(float distance) {
+  // ROS_INFO("GO FORWARD");
+  turnFix(PI_MOVE / 2);
+  turnFix(PI_MOVE / 2);
+  goFix(distance);
 }

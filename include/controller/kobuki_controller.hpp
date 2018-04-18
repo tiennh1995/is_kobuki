@@ -155,6 +155,18 @@ public:
   void odometryHandle(const nav_msgs::OdometryConstPtr& odometry);
   void laserHandle(const sensor_msgs::LaserScanConstPtr laser);
   void amclHandle(const geometry_msgs::PoseWithCovarianceStampedConstPtr amclpose);
+
+  // Hard Fix
+  void initCellFix();
+  void moveWithSTCFix();
+  void moveToMegaCellFix(MegaCell megaCell);
+  bool moveToCellFix(Cell nextCell, int direction);
+  void turnFix(float degree);
+  void turnLeftFix();
+  void turnRightFix();
+  void goFix(float distance);
+  void goForwardFix(float distance);
+  void goStraightFix(float distance);
 };
 
 #endif
