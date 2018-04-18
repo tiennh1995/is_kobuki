@@ -89,8 +89,8 @@ MegaCell Common::findMegaCellByCell(Cell cell) {
 
 int* Common::findIndexCell(Cell cell) {
 	int* index = (int*)malloc(2 * sizeof(int));
-	for (int i = 0; i < Common::rowCells / 2; i++) {
-		for (int j = 0; j < Common::colCells / 2; j++)
+	for (int i = 0; i < Common::rowCells; i++) {
+		for (int j = 0; j < Common::colCells; j++)
 			if (Common::cells[i][j].getX() == cell.getX() &&
 			    Common::cells[i][j].getY() == cell.getY()) {
 				index[0] = i;

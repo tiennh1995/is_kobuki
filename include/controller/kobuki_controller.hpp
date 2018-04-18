@@ -91,7 +91,7 @@ public:
     stcNavigation = STCNavigation();
     map = Map();
     initMap = true;
-    cellSize = 6;
+    cellSize = 16;
     PI = 3.1415926535897;
     PI_MOVE = 2.8;
     angularSpeed = PI / 8;
@@ -126,16 +126,12 @@ public:
 
   // Khoi tao cell, megaCell
   void initCell();
-  void initCellFixCung();
 
   // Chay robot voi thuat toan STC
   void moveWithSTC();
 
   // Di chuyen giua cac megaCell (Tu currentMegaCell toi megaCell)
   void moveToMegaCell(MegaCell megaCell);
-
-  // Khoi tao move_base
-  bool initMoveBase();
 
   // Di chuyen giua cac cell (Tu currentCell toi nextCell)
   bool moveToCell(Cell nextCell, int direction);

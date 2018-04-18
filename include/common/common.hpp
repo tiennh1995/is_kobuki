@@ -10,8 +10,10 @@
 
 class Common {
 private:
-  static Cell findCellWithPosition(int x, int y, int minX, int maxX, int minY, int maxY);
-  static MegaCell findMegaCellWithPosition(int x, int y, int minX, int maxX, int minY, int maxY);
+  static Cell findCellWithPosition(int x, int y, int minX, int maxX,
+                                   int minY, int maxY);
+  static MegaCell findMegaCellWithPosition(int x, int y, int minX, int maxX,
+      int minY, int maxY);
 
 public:
   static Cell **cells;

@@ -31,16 +31,22 @@ private:
   // Robot
   int robotSize;
   Robot* robots;
+  int MAX_ROBOT_SIZE;
   int cellSize;
 
   void initializeMap(const nav_msgs::MapMetaDataConstPtr msg);
   void setMapData(const nav_msgs::OccupancyGridConstPtr msg);
   void initCell();
 
-  bool robotJoin(is_kobuki::UpdateRobot::Request& request, is_kobuki::UpdateRobot::Response& response);
-  bool updateMap(is_kobuki::UpdateMap::Request& request, is_kobuki::UpdateMap::Response& response);
-  bool validMegaCells(is_kobuki::ValidMegaCells::Request& request, is_kobuki::ValidMegaCells::Response& response);
-  bool updateRobot(is_kobuki::UpdateRobot::Request& request, is_kobuki::UpdateRobot::Response& response);
+  bool updateMap(is_kobuki::UpdateMap::Request& request,
+                 is_kobuki::UpdateMap::Response& response);
+  bool validMegaCells(is_kobuki::ValidMegaCells::Request& request,
+                      is_kobuki::ValidMegaCells::Response& response);
+  bool updateRobot(is_kobuki::UpdateRobot::Request& request,
+                   is_kobuki::UpdateRobot::Response& response);
+  int findRobot(int robotId);
+  bool validRobotId(int robotId);
+  bool validCell(int row, int col);
 
 public:
   MapService(ros::NodeHandle nodehandle) {
@@ -48,8 +54,9 @@ public:
     map = Map();
     initMap = true;
     robotSize = 0;
-    robots = (Robot*)malloc(2 * sizeof(Robot));
-    cellSize = 6;
+    MAX_ROBOT_SIZE = 2;
+    robots = (Robot*)malloc(MAX_ROBOT_SIZE * sizeof(Robot));
+    cellSize = 16;
   }
 
   ~MapService() {
