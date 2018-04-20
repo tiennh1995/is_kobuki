@@ -21,6 +21,8 @@ bool KobukiController::init() {
 
   // Subscriber
   // Init map
+  amcl_sub = nh.subscribe(initTopic("/amcl_pose"), 1,
+                          &KobukiController::amclHandle, this);
   map_metadata_sub = nh.subscribe("/map_metadata", 10,
                                   &KobukiController::initializeMap, this);
   bumper_event_sub = nh.subscribe(initTopic("/mobile_base/events/bumper"), 1,
@@ -30,8 +32,6 @@ bool KobukiController::init() {
   odometry_sub = nh.subscribe(initTopic("/odom"), 1,
                               &KobukiController::odometryHandle, this);
   laser_sub = nh.subscribe(initTopic("/scan"), 1, &KobukiController::laserHandle, this);
-  amcl_sub = nh.subscribe(initTopic("/amcl_pose"), 1,
-                          &KobukiController::amclHandle, this);
 
   // Services
   updateRobotClient = nh.serviceClient<is_kobuki::UpdateRobot>("/update_robot");
@@ -41,8 +41,6 @@ bool KobukiController::init() {
   // Publisher
   cmd_vel_pub = nh.advertise<geometry_msgs::Twist>(initTopic("/mobile_base/commands/velocity"), 1);
   power_pub = nh.advertise<kobuki_msgs::MotorPower>(initTopic("/mobile_base/commands/motor_power"), 1);
-
-  // thread.start(&KobukiController::moveWithSTC, *this);
 
   ROS_INFO("Init Controller Success!");
   ros::spin();
@@ -84,6 +82,7 @@ void KobukiController::setMapData(const nav_msgs::OccupancyGridConstPtr msg) {
   map.setMapData(map.oneArrToTwoArr(mapData));
   initCell();
 
+  thread.start(&KobukiController::moveWithSTC, *this);
   updateRobot(true, true);
 }
 
@@ -162,6 +161,34 @@ void KobukiController::initCell() {
     rowM++;
     colM = 0;
   }
+
+  ROS_INFO("Cell: ");
+  for (int i = Common::rowCells - 1; i >= 0; i--)
+    for (int j = 0; j < Common::colCells; j++) {
+      if (Common::cells[i][j].getStatus() == SCANED)
+        printf("o");
+      else if (Common::cells[i][j].hasObstacle())
+        printf("x");
+      else
+        printf("-");
+
+      if (j == Common::colCells - 1)
+        printf("\n");
+    }
+
+  ROS_INFO("MegaCell: ");
+  for (int i = Common::rowCells / 2 - 1; i >= 0; i--)
+    for (int j = 0; j < Common::colCells / 2; j++) {
+      if (Common::megaCells[i][j].getStatus() == SCANED)
+        printf("o");
+      else if (Common::megaCells[i][j].hasObstacle())
+        printf("x");
+      else
+        printf("-");
+
+      if (j == Common::colCells / 2 - 1)
+        printf("\n");
+    }
 }
 
 // Move robot with STC algorithm
@@ -388,13 +415,13 @@ void KobukiController::reMove() {
   ROS_INFO("REMOVE");
   if (std::abs(deltaTheta) >= epsilonTheta) {
     if (deltaTheta > 0) {
-      turn(-(PI / 2 + deltaTheta));
+      turn(-(PI_MOVE / 2 + deltaTheta));
       getIsDirectionX() ? go(std::abs(deltaX)) : go(std::abs(deltaY));
-      turn(PI / 2);
+      turn(PI_MOVE / 2);
     } else {
-      turn(PI / 2 - deltaTheta);
+      turn(PI_MOVE / 2 - deltaTheta);
       getIsDirectionX() ? go(std::abs(deltaX)) : go(std::abs(deltaY));
-      turn(-PI / 2);
+      turn(-PI_MOVE / 2);
     }
   }
 

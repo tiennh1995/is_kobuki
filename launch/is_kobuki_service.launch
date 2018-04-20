@@ -1,0 +1,4 @@
+<launch>
+  <!-- MapService -->
+  <node name="is_kobuki_service_node" pkg="is_kobuki" type="is_kobuki_service_node"/>
+</launch>
