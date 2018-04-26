@@ -82,7 +82,7 @@ void KobukiController::setMapData(const nav_msgs::OccupancyGridConstPtr msg) {
   map.setMapData(map.oneArrToTwoArr(mapData));
   initCell();
 
-  thread1.start(&KobukiController::moveWithSTC, *this);
+  thread.start(&KobukiController::moveWithSTC, *this);
 }
 
 // Khoi tao cell, megaCell
@@ -134,11 +134,11 @@ void KobukiController::initCell() {
   Common::colCells = numberCol;
 
   // chia map trong truong hop chay 2 robot
-  if(robotId != 0) {
+  if (robotId != 0) {
     divideMap(robotId);
     for (int rowC = 0; rowC < numberRow; rowC++) {
       for (int colC = 0; colC < numberCol; colC++) {
-        if(!(rowC >= minRow && rowC <= maxRow && colC >= minCol && colC <= maxCol)) {
+        if (!(rowC >= minRow && rowC <= maxRow && colC >= minCol && colC <= maxCol)) {
           Common::cells[rowC][colC].setObstacle(true);
         }
       }
@@ -200,16 +200,15 @@ void KobukiController::moveWithSTC() {
   else
     row = distanceY / cellSize;
 
-  row = 3;
-  col = 3;
-
+  row = 11;
+  col = 2;
   stcNavigation.startCell = Common::cells[row][col];
   stcNavigation.startMegaCell = Common::findMegaCellByCell(stcNavigation.startCell);
 
   stcNavigation.currentCell = stcNavigation.startCell;
   stcNavigation.currentMegaCell = stcNavigation.startMegaCell;
   Common::cells[row][col].setStatus(SCANED);
-  if(robotId != 0) updateMap(Common::cells[row][col], 0);
+  if (robotId != 0) updateMap(Common::cells[row][col], 0);
 
   // Quet hang xom xung quanh megaCell hien tai
   MegaCell megaCell = stcNavigation.scanNeighbor(1);
@@ -233,11 +232,11 @@ void KobukiController::moveWithSTC() {
 
   ROS_INFO("END MOVESTC");
 
-  if(robotId != 0) {
+  if (robotId != 0) {
     int robotStatus = updateMap(stcNavigation.currentCell, 1);
-    while(robotStatus != 2) {
-      if(robotStatus == 0) {
-        if(!validMegaCells(robotId)) break;
+    while (robotStatus != 2) {
+      if (robotStatus == 0) {
+        if (!validMegaCells(robotId)) break;
         printCellAndMegaCell();
 
         goToCertainCell(Common::cells, stcNavigation.currentCell, certainCell);
@@ -247,7 +246,7 @@ void KobukiController::moveWithSTC() {
         stcNavigation.currentCell = Common::cells[row][col];
         stcNavigation.currentMegaCell = Common::findMegaCellByCell(stcNavigation.currentCell);
         Common::cells[row][col].setStatus(SCANED);
-        if(robotId != 0) updateMap(Common::cells[row][col], 0);
+        if (robotId != 0) updateMap(Common::cells[row][col], 0);
 
         MegaCell megaCell = stcNavigation.scanNeighbor(1);
 
@@ -269,8 +268,6 @@ void KobukiController::moveWithSTC() {
       usleep(2000000);
     }
   }
-
-
 }
 
 // Move from currentMegaCell to megaCell
@@ -305,7 +302,7 @@ void KobukiController::moveToMegaCell(MegaCell megaCell) {
 
 // Use movebase to move from currentCell to cell
 bool KobukiController::moveToCell(Cell cell, int direction) {
-  float distance = cell.getCellSize() * 0.021;
+  float distance = cell.getCellSize() * 0.0213;
 
   switch (direction) {
   case D_UP:
@@ -324,38 +321,42 @@ bool KobukiController::moveToCell(Cell cell, int direction) {
     break;
   }
 
-  // reMove();
   cell.setStatus(SCANED);
   int *index = Common::findIndexCell(cell);
   Common::cells[index[0]][index[1]].setStatus(SCANED);
   MegaCell megaCell = Common::findMegaCellByCell(cell);
   int *temp = Common::findIndexMegaCell(megaCell);
-  if(Common::megaCells[temp[0]][temp[1]].isScaned() == SCANED)
+  if (Common::megaCells[temp[0]][temp[1]].isScaned() == SCANED)
     Common::megaCells[temp[0]][temp[1]].setStatus(SCANED);
 
   system("clear");
   printCellAndMegaCell();
 
-  if(robotId != 0)
+  if (robotId != 0)
     updateMap(cell, 0);
+
   return true;
 }
 
 void KobukiController::turn(float degree) {
-  ros::Rate rate(10);
+  ros::Rate rate(50);
   float theta = current_pose.theta;
-  float x = current_pose.x;
-  float y = current_pose.y;
+  float current_theta = current_pose.theta;
   geometry_msgs::Twist move;
   move.angular.z = degree > 0 ? angularSpeed : -angularSpeed;
-  degree -= deltaTheta;
-  ROS_INFO("current_pose.theta: %f, deltaTheta: %f, degree: %f", current_pose.theta,
-           deltaTheta, degree);
-  deltaTheta = 0;
-  while (ros::ok() && (std::abs(current_pose.theta - theta) < std::abs(degree))) {
+
+  while (ros::ok() && (std::abs(current_theta - theta) < std::abs(degree))) {
     cmd_vel_pub.publish(move);
     ros::spinOnce();
     rate.sleep();
+    current_theta = current_pose.theta;
+    if (std::abs(current_theta - theta) > (PI + 0.5)) {
+      theta = -theta;
+      if (degree < 0)
+        degree += std::abs(PI) - std::abs(theta);
+      else
+        degree -= std::abs(PI) - std::abs(theta);
+    }
   }
 
   // stop
@@ -363,9 +364,6 @@ void KobukiController::turn(float degree) {
   cmd_vel_pub.publish(move);
 
   setIsDirectionX(!isDirectionX);
-  deltaTheta += current_pose.theta - theta - degree;
-  ROS_INFO("current_pose.theta: %f, deltaTheta: %f, degree: %f", current_pose.theta,
-           deltaTheta, degree);
   usleep(2000000);
   ROS_INFO("TURN SUCCEEDED");
 }
@@ -381,7 +379,7 @@ void KobukiController::turnRight() {
 }
 
 void KobukiController::go(float distance) {
-  ros::Rate rate(10);
+  ros::Rate rate(50);
   float theta = current_pose.theta;
   float x = current_pose.x;
   float y = current_pose.y;
@@ -394,21 +392,14 @@ void KobukiController::go(float distance) {
       ros::spinOnce();
       rate.sleep();
     }
-
-    deltaX += current_pose.x - x - distance;
-    deltaY += current_pose.y - y;
   } else {
     while (ros::ok() && (std::abs(current_pose.y - y) < distance)) {
       cmd_vel_pub.publish(move);
       ros::spinOnce();
       rate.sleep();
     }
-
-    deltaX += current_pose.x - x;
-    deltaY += current_pose.y - y - distance;
   }
 
-  deltaTheta += current_pose.theta - theta;
   usleep(2000000);
   ROS_INFO("GO SUCCEEDED");
 }
@@ -425,30 +416,8 @@ void KobukiController::goForward(float distance) {
   go(distance);
 }
 
-void KobukiController::reMove() {
-  ROS_INFO("REMOVE");
-  if (std::abs(deltaTheta) >= epsilonTheta) {
-    if (deltaTheta > 0) {
-      turn(-(PI_MOVE / 2 + deltaTheta));
-      getIsDirectionX() ? go(std::abs(deltaX)) : go(std::abs(deltaY));
-      turn(PI_MOVE / 2);
-    } else {
-      turn(PI_MOVE / 2 - deltaTheta);
-      getIsDirectionX() ? go(std::abs(deltaX)) : go(std::abs(deltaY));
-      turn(-PI_MOVE / 2);
-    }
-  }
 
-  if (std::abs(deltaX) >= epsilonX)
-    go(deltaX);
-
-  if (std::abs(deltaY) >= epsilonY)
-    go(deltaY);
-
-  ROS_INFO("REMOVE SUCCESSED");
-}
-
-int KobukiController::updateMap(Cell cell, int isFinish) {
+int KobukiController::updateMap(Cell cell) {
   ROS_INFO("Update Map");
 
   is_kobuki::UpdateMap msg;
@@ -567,7 +536,7 @@ void KobukiController::printCellAndMegaCell() {
         printf("o ");
       else if (Common::cells[i][j].hasObstacle())
         printf("x ");
-      else if(Common::cells[i][j].getStatus() == MOVING)
+      else if (Common::cells[i][j].getStatus() == MOVING)
         printf("* ");
       else
         printf("- ");
@@ -599,8 +568,8 @@ void KobukiController::goToCertainCell(Cell **cells, Cell beginCell, Cell certai
     B[i] = new int[Common::colCells];
   int C[80][80];
   int D[80];
-  int i,j,a,b,c,d,e,f,g,h,k,n,m;
-  int o,p,q;
+  int i, j, a, b, c, d, e, f, g, h, k, n, m;
+  int o, p, q;
   int dodai;
   int chuoi;
   int so;
@@ -611,12 +580,12 @@ void KobukiController::goToCertainCell(Cell **cells, Cell beginCell, Cell certai
   int dodai1;
   printf("nhap mang\n");
 
-  for(i=0;i<=Common::rowCells-1;i++){
-    for (j=0;j<=Common::colCells-1;j++){
-      if(cells[i][j].hasObstacle()){
+  for (i = 0; i <= Common::rowCells - 1; i++) {
+    for (j = 0; j <= Common::colCells - 1; j++) {
+      if (cells[i][j].hasObstacle()) {
         printf("x ");
         B[i][j] = 2;
-      }else{
+      } else {
         printf("_ ");
         B[i][j] = 0;
       }
@@ -629,102 +598,102 @@ void KobukiController::goToCertainCell(Cell **cells, Cell beginCell, Cell certai
   int *temp = Common::findIndexCell(certainCell);
   c = temp[0];
   d = temp[1];
-  printf("%d %d --> %d %d\n", a,b,c,d);
+  printf("%d %d --> %d %d\n", a, b, c, d);
 
-  a = Common::rowCells - 1- a;
-  c = Common::rowCells -1 - c;
-  if(a!=c||b!=d){
-    e=a+1;
-    f=a-1;
-    g=b+1;
-    h=b-1;
-    if( B[e][b]==0){
-      B[e][b]=1;
-      C[0][0]=1;
-      C[0][1]= e*100+b;
+  a = Common::rowCells - 1 - a;
+  c = Common::rowCells - 1 - c;
+  if (a != c || b != d) {
+    e = a + 1;
+    f = a - 1;
+    g = b + 1;
+    h = b - 1;
+    if ( B[e][b] == 0) {
+      B[e][b] = 1;
+      C[0][0] = 1;
+      C[0][1] = e * 100 + b;
     }
-    if( B[f][b]==0){
-      B[f][b]=1;
-      C[1][0]=1;
-      C[1][1]= f*100+b;
+    if ( B[f][b] == 0) {
+      B[f][b] = 1;
+      C[1][0] = 1;
+      C[1][1] = f * 100 + b;
     }
-    if( B[a][g]==0){
-      B[a][g]=1;
-      C[2][0]=1;
-      C[2][1]=a*100+g;
+    if ( B[a][g] == 0) {
+      B[a][g] = 1;
+      C[2][0] = 1;
+      C[2][1] = a * 100 + g;
     }
-    if( B[a][h]==0){
-      B[a][h]=1;
-      C[3][0]=1;
-      C[3][1]= a*100 + h;
+    if ( B[a][h] == 0) {
+      B[a][h] = 1;
+      C[3][0] = 1;
+      C[3][1] = a * 100 + h;
     }
 
   }
-  while(p!=c||q!=d){
-    dodai=dodai+1;
-    for(chuoi=0; chuoi<=30; chuoi++){
-      if(C[chuoi][0]==dodai){
+  while (p != c || q != d) {
+    dodai = dodai + 1;
+    for (chuoi = 0; chuoi <= 30; chuoi++) {
+      if (C[chuoi][0] == dodai) {
         so = C[chuoi][dodai];
         hang = so / 100;
         cot = so % 100;
-        if(hang==c&&cot==d){
-          p=hang;
-          q=cot;
-          for(k=1; k<=dodai;k++){
-            D[k]=C[chuoi][k];
+        if (hang == c && cot == d) {
+          p = hang;
+          q = cot;
+          for (k = 1; k <= dodai; k++) {
+            D[k] = C[chuoi][k];
           }
         }
-        e = hang +1;
-        f = hang -1;
+        e = hang + 1;
+        f = hang - 1;
         g = cot + 1;
-        h = cot -1;
+        h = cot - 1;
         dodai1 = dodai + 1;
-        if(B[e][cot]==0){
+        if (B[e][cot] == 0) {
           lap = 0;
-          B[e][cot]=1;
-          while(C[lap][0]!=0){
-            lap = lap +1;
+          B[e][cot] = 1;
+          while (C[lap][0] != 0) {
+            lap = lap + 1;
           }
-          C[lap][0]= dodai1;
-          C[lap][dodai1]= e*100 + cot;
-          for(k=1;k<=dodai;k++){
-            C[lap][k]=C[chuoi][k];
+          C[lap][0] = dodai1;
+          C[lap][dodai1] = e * 100 + cot;
+          for (k = 1; k <= dodai; k++) {
+            C[lap][k] = C[chuoi][k];
           }
         }
-        if(B[f][cot]==0){
+        if (B[f][cot] == 0) {
           lap = 0;
-          B[f][cot]=1;
-          while(C[lap][0]!=0){
-            lap = lap +1;
+          B[f][cot] = 1;
+          while (C[lap][0] != 0) {
+            lap = lap + 1;
           }
-          C[lap][0]= dodai1;
-          C[lap][dodai1]= f*100 + cot;
-          for(k=1;k<=dodai;k++){
-            C[lap][k]=C[chuoi][k];
+          C[lap][0] = dodai1;
+          C[lap][dodai1] = f * 100 + cot;
+          for (k = 1; k <= dodai; k++) {
+            C[lap][k] = C[chuoi][k];
           }
         }
-        if(B[hang][g]==0){
+        if (B[hang][g] == 0) {
           lap = 0;
-          B[hang][g]=1;
-          while(C[lap][0]!=0){
-            lap = lap +1;
+          B[hang][g] = 1;
+          while (C[lap][0] != 0) {
+            lap = lap + 1;
           }
-          C[lap][0]= dodai1;
-          C[lap][dodai1]= hang*100 + g;
-          for(k=1;k<=dodai;k++){
-            C[lap][k]=C[chuoi][k];
+          C[lap][0] = dodai1;
+          C[lap][dodai1] = hang * 100 + g;
+          for (k = 1; k <= dodai; k++) {
+            C[lap][k] = C[chuoi][k];
           }
         }
-        if(B[hang][h]==0){
+        if (B[hang][h] == 0) {
           lap = 0;
-          B[hang][h]=1;
-          while(C[lap][0]!=0){
-            lap = lap +1;
+          B[hang][h] = 1;
+          while (C[lap][0] != 0) {
+            lap = lap + 1;
           }
-          C[lap][0]= dodai1;
-          C[lap][dodai1]= hang*100 + h;
-          for(k=1;k<=dodai;k++){
-            C[lap][k]=C[chuoi][k];
+          C[lap][0] = dodai1;
+          C[lap][dodai1] = hang * 100 + h;
+          for (k = 1; k <= dodai; k++) {
+            C[lap][k] = C[chuoi][k];
           }
         }
         C[chuoi][0] = 0;
@@ -734,11 +703,11 @@ void KobukiController::goToCertainCell(Cell **cells, Cell beginCell, Cell certai
   }
   // printf("%d_%d\n", Common::rowCells - 1- a,b);
   printf("A\n");
-  cellArr.push_back(Common::cells[Common::rowCells-1-a][b]);
-  for(k=1; k<=dodai; k++){
+  cellArr.push_back(Common::cells[Common::rowCells - 1 - a][b]);
+  for (k = 1; k <= dodai; k++) {
     so = D[k];
-    hang = so /100;
-    hang2 = Common::rowCells-1-hang;
+    hang = so / 100;
+    hang2 = Common::rowCells - 1 - hang;
     cot = so % 100;
     // printf("%d_%d\n", hang2,cot );
     cellArr.push_back(Common::cells[hang2][cot]);
@@ -755,84 +724,84 @@ void KobukiController::goToCertainCell(Cell **cells, Cell beginCell, Cell certai
     Cell cell = cellArr[x];
     x++;
     int position = stcNavigation.currentCell.getNeighbor(cell);
-    stcNavigation.currentCell = cellArr[x-1];
-    switch(stcNavigation.currentDirection) {
-      case D_UP:
-        if(position == UP) {
-          stcNavigation.passedCellDirection.push(D_UP);
-          stcNavigation.currentDirection = D_UP;
-        }
-        if(position == LEFT) {
-          stcNavigation.passedCellDirection.push(D_LEFT);
-          stcNavigation.currentDirection = D_LEFT;
-        }
-        if(position == DOWN) {
-          stcNavigation.passedCellDirection.push(D_DOWN);
-          stcNavigation.currentDirection = D_DOWN;
-        }
-        if(position == RIGHT) {
-          stcNavigation.passedCellDirection.push(D_RIGHT);
-          stcNavigation.currentDirection = D_RIGHT;
-        }
-        break;
-      case D_LEFT:
-        if(position == UP) {
-          stcNavigation.passedCellDirection.push(D_RIGHT);
-          stcNavigation.currentDirection = D_UP;
-        }
-        if(position == LEFT) {
-          stcNavigation.passedCellDirection.push(D_UP);
-          stcNavigation.currentDirection = D_LEFT;
-        }
-        if(position == DOWN) {
-          stcNavigation.passedCellDirection.push(D_LEFT);
-          stcNavigation.currentDirection = D_DOWN;
-        }
-        if(position == RIGHT) {
-          stcNavigation.passedCellDirection.push(D_DOWN);
-          stcNavigation.currentDirection = D_RIGHT;
-        }
-        break;
-      case D_DOWN:
-        if(position == UP) {
-          stcNavigation.passedCellDirection.push(D_DOWN);
-          stcNavigation.currentDirection = D_UP;
-        }
-        if(position == LEFT) {
-          stcNavigation.passedCellDirection.push(D_RIGHT);
-          stcNavigation.currentDirection = D_LEFT;
-        }
-        if(position == DOWN) {
-          stcNavigation.passedCellDirection.push(D_UP);
-          stcNavigation.currentDirection = D_DOWN;
-        }
-        if(position == RIGHT) {
-          stcNavigation.passedCellDirection.push(D_LEFT);
-          stcNavigation.currentDirection = D_RIGHT;
-        }
-        break;
-      case D_RIGHT:
-        if(position == UP) {
-          stcNavigation.passedCellDirection.push(D_LEFT);
-          stcNavigation.currentDirection = D_UP;
-        }
-        if(position == LEFT) {
-          stcNavigation.passedCellDirection.push(D_DOWN);
-          stcNavigation.currentDirection = D_LEFT;
-        }
-        if(position == DOWN) {
-          stcNavigation.passedCellDirection.push(D_RIGHT);
-          stcNavigation.currentDirection = D_DOWN;
-        }
-        if(position == RIGHT) {
-          stcNavigation.passedCellDirection.push(D_UP);
-          stcNavigation.currentDirection = D_RIGHT;
-        }
-        break;
+    stcNavigation.currentCell = cellArr[x - 1];
+    switch (stcNavigation.currentDirection) {
+    case D_UP:
+      if (position == UP) {
+        stcNavigation.passedCellDirection.push(D_UP);
+        stcNavigation.currentDirection = D_UP;
+      }
+      if (position == LEFT) {
+        stcNavigation.passedCellDirection.push(D_LEFT);
+        stcNavigation.currentDirection = D_LEFT;
+      }
+      if (position == DOWN) {
+        stcNavigation.passedCellDirection.push(D_DOWN);
+        stcNavigation.currentDirection = D_DOWN;
+      }
+      if (position == RIGHT) {
+        stcNavigation.passedCellDirection.push(D_RIGHT);
+        stcNavigation.currentDirection = D_RIGHT;
+      }
+      break;
+    case D_LEFT:
+      if (position == UP) {
+        stcNavigation.passedCellDirection.push(D_RIGHT);
+        stcNavigation.currentDirection = D_UP;
+      }
+      if (position == LEFT) {
+        stcNavigation.passedCellDirection.push(D_UP);
+        stcNavigation.currentDirection = D_LEFT;
+      }
+      if (position == DOWN) {
+        stcNavigation.passedCellDirection.push(D_LEFT);
+        stcNavigation.currentDirection = D_DOWN;
+      }
+      if (position == RIGHT) {
+        stcNavigation.passedCellDirection.push(D_DOWN);
+        stcNavigation.currentDirection = D_RIGHT;
+      }
+      break;
+    case D_DOWN:
+      if (position == UP) {
+        stcNavigation.passedCellDirection.push(D_DOWN);
+        stcNavigation.currentDirection = D_UP;
+      }
+      if (position == LEFT) {
+        stcNavigation.passedCellDirection.push(D_RIGHT);
+        stcNavigation.currentDirection = D_LEFT;
+      }
+      if (position == DOWN) {
+        stcNavigation.passedCellDirection.push(D_UP);
+        stcNavigation.currentDirection = D_DOWN;
+      }
+      if (position == RIGHT) {
+        stcNavigation.passedCellDirection.push(D_LEFT);
+        stcNavigation.currentDirection = D_RIGHT;
+      }
+      break;
+    case D_RIGHT:
+      if (position == UP) {
+        stcNavigation.passedCellDirection.push(D_LEFT);
+        stcNavigation.currentDirection = D_UP;
+      }
+      if (position == LEFT) {
+        stcNavigation.passedCellDirection.push(D_DOWN);
+        stcNavigation.currentDirection = D_LEFT;
+      }
+      if (position == DOWN) {
+        stcNavigation.passedCellDirection.push(D_RIGHT);
+        stcNavigation.currentDirection = D_DOWN;
+      }
+      if (position == RIGHT) {
+        stcNavigation.passedCellDirection.push(D_UP);
+        stcNavigation.currentDirection = D_RIGHT;
+      }
+      break;
     }
   } while (x != cellArr.size());
 
-  x=1;
+  x = 1;
   stcNavigation.currentCell = cellArr[0];
   while (!stcNavigation.passedCellDirection.empty()) {
     int direction = stcNavigation.passedCellDirection.front();

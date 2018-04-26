@@ -1,4 +1,5 @@
 <launch>
   <!-- Controller -->
-  <node name="is_kobuki_node" pkg="is_kobuki" type="is_kobuki_node"/>
+  <arg name="robot_id" default="1" />
+  <node name="is_kobuki_node" pkg="is_kobuki" type="is_kobuki_node" args="$(arg robot_id)" />
 </launch>
