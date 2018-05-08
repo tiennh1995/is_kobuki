@@ -6,7 +6,8 @@
 
 enum Status {
   WAITING,
-  SCANED
+  SCANED,
+  MOVING
 };
 
 #endif

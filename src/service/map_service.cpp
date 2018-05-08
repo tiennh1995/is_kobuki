@@ -1,5 +1,4 @@
 #include "../../include/service/map_service.hpp"
-
 bool MapService::init() {
   ROS_INFO("Init MapService");
   // Subscriber
@@ -8,9 +7,9 @@ bool MapService::init() {
                                   &MapService::initializeMap, this);
 
   // Services
-  update_robot_service = nh.advertiseService("update_robot", &MapService::updateRobot, this);
   update_map_service = nh.advertiseService("update_map", &MapService::updateMap, this);
   valid_mega_cells_service = nh.advertiseService("valid_mega_cells", &MapService::validMegaCells, this);
+  divide_map_service = nh.advertiseService("divide_map", &MapService::divideMap, this);
 
   ROS_INFO("Init MapService success!");
 
@@ -58,13 +57,13 @@ void MapService::initCell() {
   // Khoi tao mang cells
 
   // Tinh so dong sau khi thu nho
-  int numberRow = ((up - down + 1) / cellSize);
+  int numberRow = ((up - down + 1) / cellSize) + 1;
   // Lam tron sao cho so dong chia het cho 2, de thuan tien cho viec chia megaCell
   if (numberRow % 2 != 0)
     numberRow--;
 
   // Tinh so cot sau khi thu nho
-  int numberCol = (right - left + 1) / cellSize;
+  int numberCol = (right - left + 1) / cellSize + 1;
   // Lam tron sao cho so cot chia het cho 2, de thuan tien cho viec chia megaCell
   if (numberCol % 2 != 0)
     numberCol--;
@@ -134,22 +133,54 @@ bool MapService::updateMap(is_kobuki::UpdateMap::Request& request,
   int col = (int) request.col;
   bool result = false;
 
-  if (validRobotId(robotId) && validCell(row, col)) {
-    Cell cell = Common::cells[row][col];
-
-    cell.setStatus((int) request.status);
-    MegaCell megaCell = Common::findMegaCellByCell(cell);
-    if (!megaCell.isNULL() && megaCell.isScaned()) {
-      megaCell.setStatus((int) request.status);
-      result = true;
-    }
+  if (robotId == 1) {
+    if (request.isFinish == 1) robots[0].setStatus(FINISH);
+    robots[0].setStartTime();
+    robots[0].setStartTime();
+    duration1 = (double)(robots[0].getFinishTime() - robots[1].getStartTime());
+    if (duration1 > timeDied && robots[1].getStatus() != FINISH) robots[1].setStatus(FAIL);
+    response.robotStatus = robots[1].getStatus();
+  } else if (robotId == 2) {
+    if (request.isFinish == 1) robots[1].setStatus(FINISH);
+    robots[1].setStartTime();
+    robots[1].setStartTime();
+    duration2 = (double)(robots[1].getFinishTime() - robots[0].getStartTime());
+    if (duration2 > timeDied && robots[0].getStatus() != FINISH) robots[0].setStatus(FAIL);
+    response.robotStatus = robots[0].getStatus();
+  } else {
+    ROS_INFO("ERROR robotId");
+    return false;
   }
 
+  Common::cells[row][col].setStatus((int) request.status);
+  MegaCell megaCell = Common::findMegaCellByCell(Common::cells[row][col]);
+  if (!megaCell.isNULL() && megaCell.isScaned()) {
+    int *index = Common::findIndexMegaCell(megaCell);
+    Common::megaCells[index[0]][index[1]].setStatus((int) request.status);
+  }
+  result = true;
+
   response.result = result;
+
   if (result)
     ROS_INFO("Update Map Success!");
   else
     ROS_INFO("Update Map Fail!");
+
+
+  for (int i = Common::rowCells - 1; i >= 0; i--) {
+    for (int j = 0; j < Common::colCells; j++) {
+      if (Common::cells[i][j].getStatus() == SCANED)
+        printf("o");
+      else if (Common::cells[i][j].hasObstacle())
+        printf("x");
+      else
+        printf("-");
+
+      if (j == Common::colCells - 1)
+        printf("\n");
+    }
+  }
 
   return true;
 }
@@ -159,81 +190,64 @@ bool MapService::validMegaCells(is_kobuki::ValidMegaCells::Request& request,
   ROS_INFO("Get valid megaCells");
 
   int robotId = (int) request.robotId;
-  int row = 0, col = 0;
-  bool result;
+  bool result = false;
 
-  if (validRobotId(robotId) && robotId <= robotSize) {
-    if (robotSize > 1 && robots[robotSize - robotId].getStatus()) {
-      row = robots[robotSize - robotId].getMaxRow();
-      col = robots[robotSize - robotId].getMaxCol();
-    }
-
-    for (int i = row; i < Common::rowCells / 2; i++)
-      for (int j = col; j < Common::colCells / 2; j++)
-        if (Common::megaCells[i][j].getStatus() == WAITING &&
-            !Common::megaCells[i][j].hasObstacle()) {
+  for (int i = 0; i < Common::rowCells / 2; i++)
+    for (int j = 0; j < Common::colCells / 2; j++)
+      if (Common::megaCells[i][j].getStatus() == WAITING &&
+          !Common::megaCells[i][j].hasObstacle()) {
           response.rows.push_back(i);
           response.cols.push_back(j);
-        }
-    result = true;
-  }
+          result = true;
+      }
 
   response.result = result;
   if (result)
-    ROS_INFO("Get valid megaCells Success!");
+    ROS_INFO("Has valid megaCells!");
   else
-    ROS_INFO("Get valid megaCells Fail!");
+    ROS_INFO("No valid megaCells!");
 
   return true;
 }
 
-bool MapService::updateRobot(is_kobuki::UpdateRobot::Request& request,
-                             is_kobuki::UpdateRobot::Response& response) {
-  ROS_INFO("Update Robot");
+bool MapService::divideMap(is_kobuki::DivideMap::Request& request,
+                             is_kobuki::DivideMap::Response& response) {
 
-  bool init = (bool) request.init;
-  int robotId = (int) request.robotId;
-  bool result = false;
+  ROS_INFO("Divide Map");
 
-  if (validRobotId(robotId)) {
-    if (init && robotSize < MAX_ROBOT_SIZE) {
-      Robot robot = robots[robotSize];
-      robotSize++;
-
-      robot.setId(robotId);
-      robot.setStatus(true);
-      robot.setMinRow(0);
-      robot.setMaxRow(Common::rowCells / 2);
-
-      if (robotSize > 1) {
-        robot.setMinCol(0);
-        robot.setMaxCol(Common::colCells / 4);
-      } else {
-        robot.setMinCol(Common::colCells / 4);
-        robot.setMaxCol(Common::colCells / 2);
-      }
-
-      response.minRow = robot.getMinRow();
-      response.maxRow = robot.getMaxRow();
-      response.minCol = robot.getMinCol();
-      response.maxCol = robot.getMaxCol();
-      result = true;
-    } else {
-      int index = findRobot(robotId);
-
-      if (index >= 0) {
-        robots[index].setStatus((bool) request.status);
-        result = true;
-      }
-    }
+  int minRow = 0;
+  int maxRow = Common::rowCells - 1;
+  int minCol1 = 0;
+  int maxCol1, minCol2;
+  int maxCol2 = Common::colCells - 1;
+  if((Common::colCells / 2) % 2 == 0 ) {
+    maxCol1 = Common::colCells / 2 - 1;
+    minCol2 = Common::colCells / 2;
+  } else {
+    maxCol1 = Common::colCells / 2;
+    minCol2 = Common::colCells / 2 + 1;
   }
 
-  response.result = result;
-  if (result)
-    ROS_INFO("Update Robot Success!");
-  else
-    ROS_INFO("Update Robot Fail!");
+  int robotId = (int) request.robotId;
+  if(robotId == 1) {
+    robots[0] = Robot();
+    robots[0].setStatus(NORMAL);
+    response.minRow = minRow;
+    response.maxRow = maxRow;
+    response.minCol = minCol1;
+    response.maxCol = maxCol1;
+  } else if(robotId == 2){
+    robots[1] = Robot();
+    robots[1].setStatus(NORMAL);
+    response.minRow = minRow;
+    response.maxRow = maxRow;
+    response.minCol = minCol2;
+    response.maxCol = maxCol2;
+  } else {
+    ROS_INFO("ERROR robotId in function MapService::deviceMap");
+  }
 
+  ROS_INFO("Device Map Success!");
   return true;
 }
 

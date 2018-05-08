@@ -24,3 +24,4 @@ install(TARGETS is_kobuki_node is_kobuki_node
 install(TARGETS is_kobuki_service_node is_kobuki_service_node
         DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
+

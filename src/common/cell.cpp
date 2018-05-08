@@ -97,7 +97,7 @@ int Cell::getNeighbor(Cell cell) {
   if ((cell.getX() > getX()) && (cell.getY() == getY()))
     return RIGHT;
 
-  return 0;
+  return -1;
 }
 
 bool Cell::operator==(const Cell &other) {

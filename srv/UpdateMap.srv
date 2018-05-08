@@ -2,5 +2,7 @@ int32 robotId
 int32 row
 int32 col
 int32 status
+int32 isFinish
 ---
+int32 robotStatus
 bool result

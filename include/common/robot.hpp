@@ -7,44 +7,26 @@
 class Robot {
 private:
   int id;
-  int minRow;
-  int maxRow;
-  int minCol;
-  int maxCol;
-  bool status;
+  int status;
+  double startTime, finishTime;
 
 public:
   Robot() {
     id = 0;
-    minRow = 0;
-    maxRow = 0;
-    minCol = 0;
-    maxCol = 0;
     status = true;
-  }
-
-  Robot(int id, int minRow, int maxRow, int minCol, int maxCol, bool status) {
-    this->id = id;
-    this->minRow = minRow;
-    this->maxRow = maxRow;
-    this->minCol = minCol;
-    this->maxCol = maxCol;
-    this->status = status;
+    startTime = 0;
+    finishTime = 0;
   }
 
   int getId();
-  int getMinRow();
-  int getMaxRow();
-  int getMinCol();
-  int getMaxCol();
-  bool getStatus();
+  int getStatus();
+  double getStartTime();
+  double getFinishTime();
 
   void setId(int id);
-  void setMinRow(int minRow);
-  void setMaxRow(int maxRow);
-  void setMinCol(int minCol);
-  void setMaxCol(int maxCol);
-  void setStatus(bool status);
+  void setStatus(int status);
+  void setStartTime();
+  void setFinishTime();
 };
 
 #endif
