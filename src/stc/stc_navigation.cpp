@@ -10,7 +10,7 @@ bool STCNavigation::checkPassedMegaCell(MegaCell megaCell) {
 }
 
 bool STCNavigation::validMegaCell(MegaCell megaCell) {
-  if (megaCell.hasObstacle()) {
+  if (megaCell.hasObstacle() || megaCell.getStatus() == SCANED) {
     return false;
   }
 

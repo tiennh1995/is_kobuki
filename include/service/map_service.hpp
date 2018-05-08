@@ -6,10 +6,16 @@
 #include <nav_msgs/OccupancyGrid.h>
 #include <nav_msgs/MapMetaData.h>
 #include <vector>
+#include <iostream>
+#include <unistd.h>
 #include <is_kobuki/UpdateMap.h>
 #include <is_kobuki/ValidMegaCells.h>
 #include <is_kobuki/UpdateRobot.h>
+#include <is_kobuki/DivideMap.h>
+#include <ecl/threads.hpp>
 #include "common/common.hpp"
+#include "common/robot_status.hpp"
+#include <time.h>
 
 class MapService {
 private:
@@ -20,9 +26,9 @@ private:
   ros::Subscriber map_metadata_sub;
 
   // Services
-  ros::ServiceServer update_robot_service;
   ros::ServiceServer update_map_service;
   ros::ServiceServer valid_mega_cells_service;
+  ros::ServiceServer divide_map_service;
 
   // Map
   Map map;
@@ -33,6 +39,9 @@ private:
   Robot* robots;
   int MAX_ROBOT_SIZE;
   int cellSize;
+  double duration1, duration2;
+  double timeDied;
+
 
   void initializeMap(const nav_msgs::MapMetaDataConstPtr msg);
   void setMapData(const nav_msgs::OccupancyGridConstPtr msg);
@@ -42,8 +51,8 @@ private:
                  is_kobuki::UpdateMap::Response& response);
   bool validMegaCells(is_kobuki::ValidMegaCells::Request& request,
                       is_kobuki::ValidMegaCells::Response& response);
-  bool updateRobot(is_kobuki::UpdateRobot::Request& request,
-                   is_kobuki::UpdateRobot::Response& response);
+  bool divideMap(is_kobuki::DivideMap::Request& request,
+                   is_kobuki::DivideMap::Response& response);
   int findRobot(int robotId);
   bool validRobotId(int robotId);
   bool validCell(int row, int col);
@@ -57,6 +66,7 @@ public:
     MAX_ROBOT_SIZE = 2;
     robots = (Robot*)malloc(MAX_ROBOT_SIZE * sizeof(Robot));
     cellSize = 16;
+    timeDied = 5;
   }
 
   ~MapService() {

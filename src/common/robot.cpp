@@ -4,23 +4,15 @@ int Robot::getId() {
   return id;
 }
 
-int Robot::getMinRow() {
-  return minRow;
+double Robot::getStartTime() {
+  return startTime;
 }
 
-int Robot::getMaxRow() {
-  return maxRow;
+double Robot::getFinishTime() {
+  return finishTime;
 }
 
-int Robot::getMinCol() {
-  return minCol;
-}
-
-int Robot::getMaxCol() {
-  return maxCol;
-}
-
-bool Robot::getStatus() {
+int Robot::getStatus() {
   return status;
 }
 
@@ -28,22 +20,14 @@ void Robot::setId(int id) {
   this->id = id;
 }
 
-void Robot::setMinRow(int minRow) {
-  this->minRow = minRow;
+void Robot::setStartTime() {
+  this->startTime = ros::Time::now().toSec();
 }
 
-void Robot::setMaxRow(int maxRow) {
-  this->maxRow = maxRow;
+void Robot::setFinishTime() {
+  this->finishTime = ros::Time::now().toSec();
 }
 
-void Robot::setMinCol(int minCol) {
-  this->minCol = minCol;
-}
-
-void Robot::setMaxCol(int maxCol) {
-  this->maxCol = maxCol;
-}
-
-void Robot::setStatus(bool status) {
+void Robot::setStatus(int status) {
   this->status = status;
 }

@@ -10,7 +10,7 @@ find_package(catkin REQUIRED COMPONENTS message_generation geometry_msgs std_msg
 add_service_files(FILES
   UpdateMap.srv
   ValidMegaCells.srv
-  UpdateRobot.srv
+  DivideMap.srv
 )
 
 # Actually generate the language-specific message and service files

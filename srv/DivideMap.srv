@@ -1,6 +1,4 @@
 int32 robotId
-bool status
-bool init
 ---
 int32 minRow
 int32 maxRow

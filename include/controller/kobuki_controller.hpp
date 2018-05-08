@@ -47,9 +47,9 @@ private:
   ros::Publisher amcl_pub;
 
   // Service
-  ros::ServiceClient updateRobotClient;
   ros::ServiceClient updateMapClient;
   ros::ServiceClient validMegaCellsClient;
+  ros::ServiceClient divideMapClient;
 
   // STC controller
   STCNavigation stcNavigation;
@@ -83,7 +83,17 @@ private:
   float deltaX, deltaY, deltaTheta;
   float epsilonX, epsilonY, epsilonTheta;
 
-  ecl::Thread thread;
+  ecl::Thread thread1;
+
+  int minRow;
+  int maxRow;
+  int minCol;
+  int maxCol;
+
+  std::vector<int> rows;
+  std::vector<int> cols;
+  std::vector<Cell> cellArr;
+  Cell certainCell;
 
 public:
   KobukiController(ros::NodeHandle nodehandle) {
@@ -93,13 +103,18 @@ public:
     initMap = true;
     cellSize = 16;
     PI = 3.1415926535897;
-    PI_MOVE = 2.8;
+    PI_MOVE = 3;
     angularSpeed = PI / 8;
     linearSpeed = 0.125;
     isDirectionX = true;
     epsilonX = 0.05;
     epsilonY = 0.05;
     epsilonTheta = 0.05;
+    robotId = 0;
+    minRow = 0;
+    minCol = 0;
+    maxRow = 0;
+    maxCol = 0;
   }
 
   // Destructor
@@ -145,9 +160,9 @@ public:
   void reMove();
 
   // Mapservice
-  int updateMap(Cell cell);
-  void validMegaCells(int robotId);
-  int updateRobot(bool init, bool status);
+  int updateMap(Cell cell, int isFinish);
+  bool validMegaCells(int robotId);
+  void divideMap(int robotId);
 
   // Xu li cac su kien tuong ung
   void bumperEventHandle(const kobuki_msgs::BumperEventConstPtr msg);
@@ -155,6 +170,8 @@ public:
   void odometryHandle(const nav_msgs::OdometryConstPtr& odometry);
   void laserHandle(const sensor_msgs::LaserScanConstPtr laser);
   void amclHandle(const geometry_msgs::PoseWithCovarianceStampedConstPtr amclpose);
+  void printCellAndMegaCell();
+  void goToCertainCell(Cell **cell, Cell beginCell, Cell certainCell);
 };
 
 #endif
