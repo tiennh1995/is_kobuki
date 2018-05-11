@@ -80,10 +80,8 @@ private:
   float angularSpeed;
   float linearSpeed;
   bool isDirectionX;
-  float deltaX, deltaY, deltaTheta;
-  float epsilonX, epsilonY, epsilonTheta;
 
-  ecl::Thread thread1;
+  ecl::Thread thread;
 
   int minRow;
   int maxRow;
@@ -105,11 +103,8 @@ public:
     PI = 3.1415926535897;
     PI_MOVE = 3;
     angularSpeed = PI / 8;
-    linearSpeed = 0.125;
+    linearSpeed = 0.1;
     isDirectionX = true;
-    epsilonX = 0.05;
-    epsilonY = 0.05;
-    epsilonTheta = 0.05;
     robotId = 0;
     minRow = 0;
     minCol = 0;
@@ -157,7 +152,6 @@ public:
   void go(float distance);
   void goForward(float distance);
   void goStraight(float distance);
-  void reMove();
 
   // Mapservice
   int updateMap(Cell cell, int isFinish);
