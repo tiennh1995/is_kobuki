@@ -8,25 +8,22 @@ class Robot {
 private:
   int id;
   int status;
-  double startTime, finishTime;
+  double updateTime;
 
 public:
   Robot() {
     id = 0;
     status = true;
-    startTime = 0;
-    finishTime = 0;
+    updateTime = 0;
   }
 
   int getId();
   int getStatus();
-  double getStartTime();
-  double getFinishTime();
+  double getUpdateTime();
 
   void setId(int id);
   void setStatus(int status);
-  void setStartTime();
-  void setFinishTime();
+  void setUpdateTime();
 };
 
 #endif

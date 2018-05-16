@@ -4,12 +4,8 @@ int Robot::getId() {
   return id;
 }
 
-double Robot::getStartTime() {
-  return startTime;
-}
-
-double Robot::getFinishTime() {
-  return finishTime;
+double Robot::getUpdateTime() {
+  return updateTime;
 }
 
 int Robot::getStatus() {
@@ -20,12 +16,8 @@ void Robot::setId(int id) {
   this->id = id;
 }
 
-void Robot::setStartTime() {
-  this->startTime = ros::Time::now().toSec();
-}
-
-void Robot::setFinishTime() {
-  this->finishTime = ros::Time::now().toSec();
+void Robot::setUpdateTime() {
+  this->updateTime = ros::Time::now().toSec();
 }
 
 void Robot::setStatus(int status) {

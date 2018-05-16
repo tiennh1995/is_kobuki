@@ -90,7 +90,6 @@ private:
 
   std::vector<int> rows;
   std::vector<int> cols;
-  std::vector<Cell> cellArr;
   Cell certainCell;
 
 public:
@@ -164,8 +163,12 @@ public:
   void odometryHandle(const nav_msgs::OdometryConstPtr& odometry);
   void laserHandle(const sensor_msgs::LaserScanConstPtr laser);
   void amclHandle(const geometry_msgs::PoseWithCovarianceStampedConstPtr amclpose);
+
   void printCellAndMegaCell();
-  void goToCertainCell(Cell **cell, Cell beginCell, Cell certainCell);
+
+  // Xu li di toi mot cell dac biet
+  void goToCertainCell(Cell **cells, Cell beginCell, Cell certainCell);
+  void goWithPath(std::vector<Cell> cellArr);
 };
 
 #endif
