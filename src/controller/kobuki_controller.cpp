@@ -41,6 +41,7 @@ bool KobukiController::init() {
   // Publisher
   cmd_vel_pub = nh.advertise<geometry_msgs::Twist>(initTopic("/mobile_base/commands/velocity"), 1);
   power_pub = nh.advertise<kobuki_msgs::MotorPower>(initTopic("/mobile_base/commands/motor_power"), 1);
+  amcl_pub = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>(initTopic("/initialpose"), 1);
 
   ROS_INFO("Init Controller Success!");
   ros::spin();
@@ -384,7 +385,6 @@ void KobukiController::turnRight() {
 
 void KobukiController::go(float distance) {
   ros::Rate rate(50);
-  float theta = current_pose.theta;
   float x = current_pose.x;
   float y = current_pose.y;
   geometry_msgs::Twist move;
@@ -524,13 +524,9 @@ void KobukiController::laserHandle(const sensor_msgs::LaserScanConstPtr laser) {
 
 // Publish vi tri robot len rviz de view.
 void KobukiController::amclHandle(const geometry_msgs::PoseWithCovarianceStampedConstPtr amclpose) {
-  maxAMCL++;
-  if (maxAMCL < 100) {
-    ROS_INFO("%f, %f", amclpose->pose.pose.position.x, amclpose->pose.pose.position.y);
-    amcl_pub.publish(amclpose);
-    currentCellX = (amclpose->pose.pose.position.x - map.getOriginX()) / map.getResolution();
-    currentCellY = (amclpose->pose.pose.position.y - map.getOriginY()) / map.getResolution();
-  }
+  amcl_pub.publish(amclpose);
+  currentCellX = (amclpose->pose.pose.position.x - map.getOriginX()) / map.getResolution();
+  currentCellY = (amclpose->pose.pose.position.y - map.getOriginY()) / map.getResolution();
 }
 
 void KobukiController::printCellAndMegaCell() {

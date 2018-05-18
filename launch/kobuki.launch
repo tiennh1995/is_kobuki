@@ -19,6 +19,9 @@
     <arg name="initial_pose_a" value="$(arg initial_pose_a)" />
   </include>
 
+  <!--Hokuyo node-->
+  <node name="hokuyo_node" pkg="hokuyo_node" type="hokuyo_node" />
+
   <!-- Transform -->
   <node pkg="tf" type="static_transform_publisher" name="bl_laser"
     args="0.0 0 0 0.0 0.0 0.0 /base_link /laser 100" />
