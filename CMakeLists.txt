@@ -17,9 +17,9 @@ add_service_files(FILES
 generate_messages(DEPENDENCIES std_msgs)
 
 catkin_package(
-   INCLUDE_DIRS include include/common include/stc include/controller include/keyop_core
-   LIBRARIES kobuki
-   CATKIN_DEPENDS message_runtime geometry_msgs std_srvs std_msgs roscpp ecl_exceptions ecl_threads ecl_time kobuki_msgs nav_msgs actionlib actionlib_msgs
+  INCLUDE_DIRS include include/common include/stc include/controller include/service
+  LIBRARIES kobuki
+  CATKIN_DEPENDS message_runtime geometry_msgs std_srvs std_msgs roscpp ecl_exceptions ecl_threads ecl_time kobuki_msgs nav_msgs actionlib actionlib_msgs
 )
 
 include_directories(include ${catkin_INCLUDE_DIRS})

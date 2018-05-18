@@ -10,7 +10,6 @@
 #include <unistd.h>
 #include <is_kobuki/UpdateMap.h>
 #include <is_kobuki/ValidMegaCells.h>
-#include <is_kobuki/UpdateRobot.h>
 #include <is_kobuki/DivideMap.h>
 #include <ecl/threads.hpp>
 #include "common/common.hpp"
