@@ -132,23 +132,30 @@ bool MapService::updateMap(is_kobuki::UpdateMap::Request& request,
   int row = (int) request.row;
   int col = (int) request.col;
   bool result = false;
+  int duration;
 
   if (robotId == 1) {
-    if (request.isFinish == 1) robots[0].setStatus(FINISH);
-    robots[0].setStartTime();
-    robots[0].setStartTime();
-    duration1 = (double)(robots[0].getFinishTime() - robots[1].getStartTime());
-    if (duration1 > timeDied && robots[1].getStatus() != FINISH) robots[1].setStatus(FAIL);
+    if (request.isFinish == 1)
+      robots[0].setStatus(FINISH);
+
+    robots[0].setUpdateTime();
+    duration = (double)(robots[0].getUpdateTime() - robots[1].getUpdateTime());
+    if (duration > timeDied && robots[1].getStatus() != FINISH)
+      robots[1].setStatus(FAIL);
+
     response.robotStatus = robots[1].getStatus();
   } else if (robotId == 2) {
-    if (request.isFinish == 1) robots[1].setStatus(FINISH);
-    robots[1].setStartTime();
-    robots[1].setStartTime();
-    duration2 = (double)(robots[1].getFinishTime() - robots[0].getStartTime());
-    if (duration2 > timeDied && robots[0].getStatus() != FINISH) robots[0].setStatus(FAIL);
+    if (request.isFinish == 1)
+      robots[1].setStatus(FINISH);
+
+    robots[1].setUpdateTime();
+    duration = (double)(robots[1].getUpdateTime() - robots[0].getUpdateTime());
+    if (duration > timeDied && robots[0].getStatus() != FINISH)
+      robots[0].setStatus(FAIL);
+
     response.robotStatus = robots[0].getStatus();
   } else {
-    ROS_INFO("ERROR robotId");
+    ROS_INFO("ERROR robotId: %d", robotId);
     return false;
   }
 
@@ -266,4 +273,3 @@ bool MapService::validRobotId(int robotId) {
 bool MapService::validCell(int row, int col) {
   return 0 <= row && row < Common::rowCells && 0 <= col && col < Common::colCells;
 }
-

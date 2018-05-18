@@ -36,7 +36,7 @@ public:
     passedCellDirection = std::queue<int>();
     passedMegaCellPath = std::stack<MegaCell>();
     passedMegaCell = std::vector<MegaCell>();
-    currentDirection = D_UP;
+    currentDirection = D_DOWN;
   }
 
   // Destructor

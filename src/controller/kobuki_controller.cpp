@@ -180,7 +180,6 @@ void KobukiController::initCell() {
 
 // Move robot with STC algorithm
 void KobukiController::moveWithSTC() {
-
   ROS_INFO("START MOVE STC");
   // 500ms
   ros::Rate loop_rate(2);
@@ -201,7 +200,7 @@ void KobukiController::moveWithSTC() {
     row = distanceY / cellSize;
 
   row = 11;
-  col = 2;
+  col = 3;
   stcNavigation.startCell = Common::cells[row][col];
   stcNavigation.startMegaCell = Common::findMegaCellByCell(stcNavigation.startCell);
 
@@ -229,9 +228,9 @@ void KobukiController::moveWithSTC() {
     moveToMegaCell(megaCell);
     megaCell = stcNavigation.scanNeighbor(0);
   }
-
   ROS_INFO("END MOVESTC");
 
+  ROS_INFO("START WITH SCAN WAITING CELLS");
   if (robotId != 0) {
     int robotStatus = updateMap(stcNavigation.currentCell, 1);
     while (robotStatus != 2) {
@@ -261,13 +260,18 @@ void KobukiController::moveWithSTC() {
           moveToMegaCell(megaCell);
           megaCell = stcNavigation.scanNeighbor(0);
         }
-
-        ROS_INFO("END MOVESTC");
       }
+
       robotStatus = updateMap(stcNavigation.currentCell, 1);
+      ROS_INFO("END SCAN WAITING CELLS");
       usleep(2000000);
     }
   }
+
+  goToCertainCell(Common::cells, stcNavigation.currentCell, Common::cells[row][col]);
+
+  ROS_INFO("Start autodocking");
+  system("roslaunch is_kobuki auto_docking_multiple.launch");
 }
 
 // Move from currentMegaCell to megaCell
@@ -417,7 +421,7 @@ void KobukiController::goForward(float distance) {
 }
 
 
-int KobukiController::updateMap(Cell cell) {
+int KobukiController::updateMap(Cell cell, int isFinish) {
   ROS_INFO("Update Map");
 
   is_kobuki::UpdateMap msg;
@@ -561,8 +565,7 @@ void KobukiController::printCellAndMegaCell() {
 }
 
 void KobukiController::goToCertainCell(Cell **cells, Cell beginCell, Cell certainCell) {
-
-  int **B;   // sua
+  int **B;
   B = new int*[Common::rowCells];
   for (int i = 0; i < Common::rowCells; i++)
     B[i] = new int[Common::colCells];
@@ -578,27 +581,24 @@ void KobukiController::goToCertainCell(Cell **cells, Cell beginCell, Cell certai
   int cot;
   int lap;
   int dodai1;
-  printf("nhap mang\n");
 
-  for (i = 0; i <= Common::rowCells - 1; i++) {
+  for (i = Common::rowCells - 1; i >= 0; i--) {
     for (j = 0; j <= Common::colCells - 1; j++) {
       if (cells[i][j].hasObstacle()) {
-        printf("x ");
         B[i][j] = 2;
       } else {
-        printf("_ ");
         B[i][j] = 0;
       }
     }
-    printf("\n");
   }
+
   int *index = Common::findIndexCell(beginCell);
   a = index[0];
   b = index[1];
   int *temp = Common::findIndexCell(certainCell);
   c = temp[0];
   d = temp[1];
-  printf("%d %d --> %d %d\n", a, b, c, d);
+  printf("[%d, %d] --> [%d, %d]\n", a, b, c, d);
 
   a = Common::rowCells - 1 - a;
   c = Common::rowCells - 1 - c;
@@ -612,23 +612,26 @@ void KobukiController::goToCertainCell(Cell **cells, Cell beginCell, Cell certai
       C[0][0] = 1;
       C[0][1] = e * 100 + b;
     }
+
     if ( B[f][b] == 0) {
       B[f][b] = 1;
       C[1][0] = 1;
       C[1][1] = f * 100 + b;
     }
+
     if ( B[a][g] == 0) {
       B[a][g] = 1;
       C[2][0] = 1;
       C[2][1] = a * 100 + g;
     }
+
     if ( B[a][h] == 0) {
       B[a][h] = 1;
       C[3][0] = 1;
       C[3][1] = a * 100 + h;
     }
-
   }
+
   while (p != c || q != d) {
     dodai = dodai + 1;
     for (chuoi = 0; chuoi <= 30; chuoi++) {
@@ -643,6 +646,7 @@ void KobukiController::goToCertainCell(Cell **cells, Cell beginCell, Cell certai
             D[k] = C[chuoi][k];
           }
         }
+
         e = hang + 1;
         f = hang - 1;
         g = cot + 1;
@@ -660,6 +664,7 @@ void KobukiController::goToCertainCell(Cell **cells, Cell beginCell, Cell certai
             C[lap][k] = C[chuoi][k];
           }
         }
+
         if (B[f][cot] == 0) {
           lap = 0;
           B[f][cot] = 1;
@@ -672,6 +677,7 @@ void KobukiController::goToCertainCell(Cell **cells, Cell beginCell, Cell certai
             C[lap][k] = C[chuoi][k];
           }
         }
+
         if (B[hang][g] == 0) {
           lap = 0;
           B[hang][g] = 1;
@@ -684,6 +690,7 @@ void KobukiController::goToCertainCell(Cell **cells, Cell beginCell, Cell certai
             C[lap][k] = C[chuoi][k];
           }
         }
+
         if (B[hang][h] == 0) {
           lap = 0;
           B[hang][h] = 1;
@@ -696,23 +703,26 @@ void KobukiController::goToCertainCell(Cell **cells, Cell beginCell, Cell certai
             C[lap][k] = C[chuoi][k];
           }
         }
+
         C[chuoi][0] = 0;
       }
-
     }
   }
-  // printf("%d_%d\n", Common::rowCells - 1- a,b);
-  printf("A\n");
+
+  std::vector<Cell> cellArr;
   cellArr.push_back(Common::cells[Common::rowCells - 1 - a][b]);
   for (k = 1; k <= dodai; k++) {
     so = D[k];
     hang = so / 100;
     hang2 = Common::rowCells - 1 - hang;
     cot = so % 100;
-    // printf("%d_%d\n", hang2,cot );
     cellArr.push_back(Common::cells[hang2][cot]);
   }
 
+  goWithPath(cellArr);
+}
+
+void KobukiController::goWithPath(std::vector<Cell> cellArr) {
   int x = 0;
   while (!stcNavigation.passedCellDirection.empty())
     stcNavigation.passedCellDirection.pop();

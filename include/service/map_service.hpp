@@ -39,7 +39,6 @@ private:
   Robot* robots;
   int MAX_ROBOT_SIZE;
   int cellSize;
-  double duration1, duration2;
   double timeDied;
 
 
@@ -66,7 +65,7 @@ public:
     MAX_ROBOT_SIZE = 2;
     robots = (Robot*)malloc(MAX_ROBOT_SIZE * sizeof(Robot));
     cellSize = 16;
-    timeDied = 5;
+    timeDied = 10;
   }
 
   ~MapService() {
